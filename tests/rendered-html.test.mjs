@@ -11,10 +11,11 @@ function source(file) {
 }
 
 test("targets the Integritas custom domain in public metadata", async () => {
-  const [layout, robots, sitemap] = await Promise.all([
+  const [layout, robots, sitemap, proxy] = await Promise.all([
     source("app/layout.tsx"),
     source("app/robots.ts"),
     source("app/sitemap.ts"),
+    source("proxy.ts"),
   ]);
 
   for (const file of [layout, robots, sitemap]) {
@@ -23,6 +24,8 @@ test("targets the Integritas custom domain in public metadata", async () => {
   }
   assert.match(layout, /alternates:\s*\{ canonical: "\/" \}/);
   assert.match(layout, /"@type": "ProfessionalService"/);
+  assert.match(proxy, /www\.\$\{CANONICAL_HOST\}/);
+  assert.match(proxy, /NextResponse\.redirect\(destination, 308\)/);
 });
 
 test("protects the contact and privacy contract", async () => {

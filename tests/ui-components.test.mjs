@@ -82,3 +82,22 @@ test("renders sidebar skeletons deterministically", async () => {
   assert.equal(first, second);
   assert.match(first, /--skeleton-width:70%/);
 });
+
+test("redirects www requests to the canonical apex host", async () => {
+  const { proxy } = await vite.ssrLoadModule("/proxy.ts");
+  const response = proxy(
+    new Request("https://www.integritass.com/privacy?source=www"),
+  );
+
+  assert.equal(response.status, 308);
+  assert.equal(
+    response.headers.get("location"),
+    "https://integritass.com/privacy?source=www",
+  );
+
+  const canonicalResponse = proxy(
+    new Request("https://integritass.com/privacy"),
+  );
+  assert.equal(canonicalResponse.status, 200);
+  assert.equal(canonicalResponse.headers.get("location"), null);
+});
