@@ -1,5 +1,6 @@
 import { getDb } from "@/db";
 import { websiteVisits } from "@/db/schema";
+import { sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 type VisitPayload = {
@@ -108,7 +109,12 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    await getDb()
+    const db = getDb();
+    await db
+      .delete(websiteVisits)
+      .where(sql`${websiteVisits.createdAt} < datetime('now', '-90 days')`);
+
+    const insertResult = await db
       .insert(websiteVisits)
       .values({
         sessionId: entry.sessionId,
@@ -124,6 +130,10 @@ export async function POST(req: NextRequest) {
         consent: entry.consent,
       })
       .onConflictDoNothing({ target: websiteVisits.sessionId });
+
+    if (!insertResult.meta?.changes) {
+      return new NextResponse(null, { status: 204 });
+    }
   } catch {
     return NextResponse.json({ error: "Analytics storage unavailable" }, { status: 503 });
   }

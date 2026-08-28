@@ -78,6 +78,9 @@ export default function PrivacyPage() {
           <p className="text-[#A9A39A] font-light leading-relaxed mb-4">
             The analytics feature does not intentionally record your full IP address, precise location, browsing activity on other websites, advertising identifiers or a device fingerprint. Your choice is stored in your browser so the website can remember it.
           </p>
+          <p className="text-[#A9A39A] font-light leading-relaxed mb-4">
+            Consented visit summaries are automatically removed after 90 days.
+          </p>
           <p className="text-[#A9A39A] font-light leading-relaxed">
             You may decline without losing access to the website. Use “Privacy choices” in the footer at any time to change the choice on that browser.
           </p>

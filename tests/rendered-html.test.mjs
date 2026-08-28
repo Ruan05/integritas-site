@@ -43,6 +43,8 @@ test("protects the contact and privacy contract", async () => {
   assert.match(visit, /cf-ipcountry/);
   assert.doesNotMatch(visit, /cf-connecting-ip|x-forwarded-for/);
   assert.match(privacy, /does not intentionally record your full IP address/);
+  assert.match(privacy, /automatically removed after 90 days/);
+  assert.match(visit, /insertResult\.meta\?\.changes/);
   assert.match(analytics, /No advertising trackers, precise location or fingerprinting/);
   assert.match(worker, /if \(!env\.IMAGES\)/);
   assert.match(worker, /sourcePath\.startsWith\("\/\/"\)/);
