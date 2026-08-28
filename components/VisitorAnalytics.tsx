@@ -34,7 +34,8 @@ function viewportBucket() {
 }
 
 async function recordVisit() {
-  if (sessionStorage.getItem(SESSION_KEY)) return;
+  const currentState = sessionStorage.getItem(SESSION_KEY);
+  if (currentState === "yes" || currentState === "pending") return;
 
   sessionStorage.setItem(SESSION_KEY, "pending");
   try {

@@ -1,8 +1,27 @@
-# vinext-starter
+# Integritas website
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Production source for the Integritas legal, business and project-management
+consulting website. The application runs on [vinext](https://github.com/cloudflare/vinext)
+and uses Cloudflare D1 for consented, first-party visit summaries.
+
+## Production behaviour
+
+- Canonical public origin: `https://integritass.com`
+- Cinematic logo entrance with a static settled state and reduced-motion support
+- Consent-aware analytics without fingerprinting or full-IP storage
+- Contact delivery through Resend when configured, with an honest `mailto:` fallback
+- Search metadata, structured data, robots and sitemap for the custom domain
+
+Optional production environment variables:
+
+- `RESEND_API_KEY` and `CONTACT_FROM_EMAIL` enable direct form delivery.
+- `CONTACT_TO_EMAIL` selects the enquiry destination.
+- `VISITOR_NOTIFICATIONS_ENABLED=true` plus `VISITOR_NOTIFICATION_EMAIL` enables
+  one email per consented visit.
+- `NEXT_PUBLIC_SITE_URL` should remain `https://integritass.com`.
+
+Never commit secret values. Resend must verify the sending domain before a custom
+`CONTACT_FROM_EMAIL` can be used.
 
 ## Prerequisites
 
@@ -19,14 +38,14 @@ This starter does not use `wrangler.jsonc`.
 
 Scripts that need writable project-scoped home, npm, XDG, and temporary paths use `scripts/sites-env.sh`. The `dev` and `start` scripts honor the caller's runtime environment and keep Wrangler logs inside the checkout. The generated `.sites-runtime/` directory is disposable and ignored by Git.
 
-## Included Shape
+## Included shape
 
 - edit site code under `app/`
 - `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
 - `.openai/hosting.json` declares optional Sites D1 and R2 bindings
 - `vite.config.ts` simulates declared bindings for local development
 - `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
-- `db/schema.ts` starts intentionally empty
+- `db/schema.ts` defines the minimal consented website-visit record
 - `examples/d1/` contains an optional D1 example surface
 - `drizzle.config.ts` supports local migration generation when needed
 
@@ -100,7 +119,8 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - `npm run dev`: start the Vite/Vinext development server
 - `npm run build`: build the deployable Sites artifact
 - `npm run start`: start the built Vinext application
-- `npm test`: build and verify the rendered development-preview metadata
+- `npm test`: build and verify the business-critical metadata, contact, privacy,
+  animation and card contracts
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
 Use build commands for targeted diagnosis after a remote failure, not as part of the normal checkpoint path.

@@ -409,7 +409,7 @@ function HeroSection() {
               width: `${p.size}px`,
               height: `${p.size}px`,
               animationDelay: p.delay,
-              animationDuration: `${5 + (i % 4)}s`,
+              animationDuration: `${3.4 + (i % 4) * 0.35}s`,
             }}
           />
         ))}
@@ -1355,9 +1355,13 @@ function ScrollProgressBar() {
 
 function BackToTopButton() {
   const visible = useBackToTop();
+  const scrollToTop = () => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+  };
   return (
     <button
-      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      onClick={scrollToTop}
       className={`fixed bottom-8 right-8 z-40 w-11 h-11 flex items-center justify-center border border-[#D4AF37]/30 bg-[#0A0A0A]/90 backdrop-blur-sm transition-all duration-500 cursor-pointer group hover:border-[#D4AF37]/60 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}
       aria-label="Back to top"
     >

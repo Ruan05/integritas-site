@@ -322,7 +322,7 @@
       transparent 60%
     );
     transform: skewX(-15deg);
-    animation: glisten 4s ease-in-out infinite;
+    animation: glisten 4s ease-in-out 1 both;
     pointer-events: none;
   }
 
@@ -415,7 +415,7 @@
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: heroShimmer 5s linear infinite;
+    animation: heroShimmer 3.2s linear 1.45s 1 both;
   }
 
   /* ─── Floating gold particles ──────────────────────── */
@@ -434,7 +434,7 @@
     border-radius: 50%;
     filter: blur(0.5px);
     box-shadow: 0 0 6px rgba(212, 175, 55, 0.4), 0 0 12px rgba(212, 175, 55, 0.15);
-    animation: float 6s ease-in-out infinite;
+    animation: float 4.4s ease-in-out 1 both;
     pointer-events: none;
   }
 
@@ -445,7 +445,7 @@
   }
 
   .scroll-indicator {
-    animation: scrollPulse 2.4s ease-in-out infinite;
+    animation: scrollPulse 2.4s ease-in-out 2;
   }
 
   /* ─── Form inputs ──────────────────────────────────── */
@@ -634,7 +634,7 @@
       rgba(212, 175, 55, 0.4)
     );
     z-index: 0;
-    animation: headshotRingRotate 12s linear infinite;
+    animation: headshotRingRotate 4.8s ease-out 1 both;
     pointer-events: none;
   }
 
@@ -647,7 +647,7 @@
     background: radial-gradient(circle, rgba(212, 175, 55, 0.12) 0%, rgba(212, 175, 55, 0.03) 40%, transparent 70%);
     z-index: -1;
     pointer-events: none;
-    animation: videoGlow 6s ease-in-out infinite;
+    animation: videoGlow 4.8s ease-out 1 both;
   }
 
   @keyframes videoGlow {
@@ -837,11 +837,11 @@
     animation: cascadeReveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
 
-  .hero-cascade-1 { animation-delay: 0.12s; }
-  .hero-cascade-2 { animation-delay: 0.22s; }
-  .hero-cascade-3 { animation-delay: 0.32s; }
-  .hero-cascade-4 { animation-delay: 0.42s; }
-  .hero-cascade-5 { animation-delay: 0.52s; }
+  .hero-cascade-1 { animation-delay: 1.05s; }
+  .hero-cascade-2 { animation-delay: 1.3s; }
+  .hero-cascade-3 { animation-delay: 1.55s; }
+  .hero-cascade-4 { animation-delay: 1.78s; }
+  .hero-cascade-5 { animation-delay: 2.02s; }
 
   @keyframes cascadeReveal {
     0% { opacity: 0; transform: translateY(18px) scale(0.985); }
@@ -917,7 +917,7 @@
   }
 
   .hero-ambient-glow {
-    animation: heroGlow 8s ease-in-out infinite;
+    animation: heroGlow 4.8s ease-out 1 both;
   }
 
   /* ─── Cursor spotlight on hero ────────────────────── */
@@ -1023,7 +1023,7 @@
       rgba(212, 175, 55, 0.6)
     );
     z-index: 0;
-    animation: headshotRingRotate 8s linear infinite;
+    animation: headshotRingRotate 4.8s ease-out 1 both;
   }
 
   @keyframes headshotRingRotate {
@@ -1158,6 +1158,7 @@
   }
   /* ─── Reduced motion ───────────────────────────────── */
   @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
     .reveal { opacity: 1; transform: none; transition: none; }
     .flip-reveal { opacity: 1; transition: none; }
     .scroll-indicator { animation: none; }

@@ -55,7 +55,7 @@ export default function PrivacyPage() {
         <p className="text-[#A9A39A] font-light leading-relaxed max-w-2xl mb-4">
           This notice explains how Integritas handles personal information submitted through this website. Integritas is the responsible party for this processing under South African data-protection law.
         </p>
-        <p className="text-xs text-[#8A857C] mb-14">Last updated: 27 August 2026</p>
+        <p className="text-xs text-[#8A857C] mb-14">Last updated: 28 August 2026</p>
 
         <div className="border-t border-[#D4AF37]/15">
           {sections.map((section, index) => (

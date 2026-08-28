@@ -35,16 +35,15 @@ async function readCssTree(directory) {
   return contents.join("\n");
 }
 
-test("emits the catalog's animation and scrolling utilities", async () => {
+test("emits the cinematic, card and reduced-motion safeguards", async () => {
   const css = await readCssTree(path.join(root, "dist"));
 
-  assert.match(css, /--tw-enter-opacity/);
-  assert.match(css, /scrollbar-width:\s*thin/);
-  assert.match(css, /scrollbar-width:\s*none/);
-  assert.match(css, /scrollbar-gutter:\s*stable/);
-  assert.match(css, /scroll-fade-reveal-b/);
-  assert.match(css, /mask-image:/);
-  assert.match(css, /tw-shimmer/);
+  assert.match(css, /hero-logo-cinematic/);
+  assert.match(css, /cinematicFigure/);
+  assert.match(css, /cinematicSettle/);
+  assert.match(css, /hero-cascade-5/);
+  assert.match(css, /flip-card-inner/);
+  assert.match(css, /backface-visibility:\s*hidden/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
 
