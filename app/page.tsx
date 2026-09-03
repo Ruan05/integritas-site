@@ -133,7 +133,7 @@ const TEAM = [
     name: "Johan Potgieter",
     role: "Group Chairman",
     bio: "Founder of Integritas with a B.Proc degree from the University of South Africa. Former Business Development Manager at the CSIR and UNDP initiative lead. Extensive high-level contacts across ICT, mining, energy, oil and gas sectors internationally. Deep experience in international stock exchange listing procedures and cross-border project commercialisation.",
-    photo: "/team/johan-v5.jpeg",
+    photo: "/team/johan-v6.png",
     email: "johan@integritass.com",
     phones: [
       { label: "WhatsApp", number: "(+27 79) 462 0451" },
