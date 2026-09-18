@@ -1060,6 +1060,19 @@ export default function IntegritasAdminWorkspace() {
                 onChange={(event) => selectFiles(Array.from(event.target.files ?? []))}
               />
 
+              <button
+                type="button"
+                disabled={!selectedCase || busy}
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-4 flex min-h-32 w-full flex-col items-center justify-center gap-3 border border-dashed border-[#D4AF37]/35 bg-[#D4AF37]/5 px-5 py-6 text-center transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/8 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <UploadCloud size={26} className="text-[#D4AF37]" />
+                <span className="text-sm font-medium text-[#E8DCC1]">Upload documents to investigate</span>
+                <span className="max-w-md text-[11px] leading-5 text-[#8F8981]">
+                  Select PDF, TXT, Markdown or CSV evidence for the active case. Up to 20 documents per case, 5 MB per file.
+                </span>
+              </button>
+
               <div className="mt-4 border border-white/8 bg-black/20 p-4">
                 <div className="flex items-center justify-between text-xs">
                   <span>Documents</span>
