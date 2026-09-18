@@ -860,7 +860,7 @@ function TeamCard({
                 <h3 className="font-serif text-lg sm:text-xl tracking-[0.12em] uppercase text-[#D4AF37] mb-0.5 flex-shrink-0">{member.name}</h3>
                 <p className="text-[9px] sm:text-[10px] tracking-[0.25em] uppercase text-[#8A857C] mb-1.5 flex-shrink-0">{member.role}</p>
                 <div className="diamond-separator max-w-[50px] mx-auto mb-2 flex-shrink-0"><span className="diamond"></span></div>
-                <p className={`text-[#8A857C] font-light flex-1 min-h-0 px-1 ${member.name === "Johan Potgieter" ? "text-[9px] sm:text-[10px] leading-[1.4] overflow-hidden" : "text-[11px] sm:text-[12px] leading-relaxed overflow-y-auto"}`} style={member.name === "Johan Potgieter" ? undefined : { WebkitOverflowScrolling: 'touch' }}>{member.bio}</p>
+                <p className={`text-[#8A857C] font-light flex-1 min-h-0 px-1 ${member.name === "Johan Potgieter" ? "text-[9px] sm:text-[9.5px] leading-[1.35] overflow-hidden" : "text-[11px] sm:text-[12px] leading-relaxed overflow-y-auto"}`} style={member.name === "Johan Potgieter" ? undefined : { WebkitOverflowScrolling: 'touch' }}>{member.bio}</p>
               </div>
               {/* Flip button */}
               <div className="flex-shrink-0 pt-2 pb-4 flex justify-center">
