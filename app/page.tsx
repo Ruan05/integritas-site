@@ -132,8 +132,8 @@ const TEAM = [
   {
     name: "Johan Potgieter",
     role: "Group Chairman",
-    bio: "Founder of Integritas with a B.Proc degree from the University of South Africa. Former Business Development Manager at the CSIR and UNDP initiative lead. Extensive high-level contacts across ICT, mining, energy, oil and gas sectors internationally. Deep experience in international stock exchange listing procedures and cross-border project commercialisation.",
-    photo: "/team/johan-v6.png",
+    bio: "Seasoned business development, project commercialization, and legal professional with extensive international experience across the agriculture, ICT, mining, energy, oil, and gas sectors. Formerly associated with South Africa’s Department of Justice, Parliament, CSIR, the UNDP, and a co-founder of a major internet company listed on both the JSE and Euronext Amsterdam. Recognized for expertise in investment facilitation, strategic partnerships, project commercialization, and cross-border project development, supported by a strong international network of investors, industry leaders, and government stakeholders.",
+    photo: "/team/johan-v6.webp",
     email: "johan@integritass.com",
     phones: [
       { label: "WhatsApp", number: "(+27 79) 462 0451" },
@@ -144,7 +144,7 @@ const TEAM = [
     name: "Anna-Mart Potgieter",
     role: "CEO, Advocate Legal Practitioner",
     bio: "An admitted Advocate Legal Practitioner of the High Courts of South Africa with over five years' experience in transnational business law. She provides strategic counsel on international trade regulations, cross-border transactions, and multi-jurisdictional compliance, combining rigorous legal research with skilled negotiation and client advocacy to deliver result-driven outcomes.",
-    photo: "/team/anna-mart-v4.png",
+    photo: "/team/anna-mart-v4.webp",
     email: "anna-mart@integritass.com",
     phones: [
       { label: "WhatsApp", number: "(+27 79) 462 0451" },
@@ -155,7 +155,7 @@ const TEAM = [
     name: "Ruan Scheepers",
     role: "Project Manager",
     bio: "Ruan coordinates the firm's cross-border engagements, managing complex multi-jurisdictional matters from inception to completion. His attention to detail and process discipline ensure seamless delivery across all practice areas.",
-    photo: "/team/ruan-v4.png",
+    photo: "/team/ruan-v4.webp",
     email: "ruan@integritass.com",
     phones: [
       { label: "WhatsApp", number: "(+27 79) 462 0451" },
@@ -855,12 +855,12 @@ function TeamCard({
               {/* Photo, name, role, bio */}
               <div className="flex-1 min-h-0 pt-3 pb-1 px-5 text-center flex flex-col items-center">
                 <div className="headshot-frame mb-3 flex-shrink-0">
-                  <Image src={member.photo} alt={member.name} width={240} height={240} className="" priority={false} />
+                  <Image src={member.photo} alt={member.name} width={240} height={240} className="" priority unoptimized />
                 </div>
                 <h3 className="font-serif text-lg sm:text-xl tracking-[0.12em] uppercase text-[#D4AF37] mb-0.5 flex-shrink-0">{member.name}</h3>
                 <p className="text-[9px] sm:text-[10px] tracking-[0.25em] uppercase text-[#8A857C] mb-1.5 flex-shrink-0">{member.role}</p>
                 <div className="diamond-separator max-w-[50px] mx-auto mb-2 flex-shrink-0"><span className="diamond"></span></div>
-                <p className="text-[#8A857C] text-[11px] sm:text-[12px] font-light leading-relaxed flex-1 min-h-0 overflow-y-auto px-1" style={{ WebkitOverflowScrolling: 'touch' }}>{member.bio}</p>
+                <p className={`text-[#8A857C] font-light flex-1 min-h-0 px-1 ${member.name === "Johan Potgieter" ? "text-[9px] sm:text-[10px] leading-[1.4] overflow-hidden" : "text-[11px] sm:text-[12px] leading-relaxed overflow-y-auto"}`} style={member.name === "Johan Potgieter" ? undefined : { WebkitOverflowScrolling: 'touch' }}>{member.bio}</p>
               </div>
               {/* Flip button */}
               <div className="flex-shrink-0 pt-2 pb-4 flex justify-center">
