@@ -62,8 +62,10 @@ test("keeps the live CRM wired to the bounded OpenClaw investigation flow", asyn
 
   assert.match(crmPage, /IntegritasAdminWorkspace/);
   assert.match(crmPage, /robots:\s*\{ index: false, follow: false \}/);
+  assert.match(workspace, /Upload documents to investigate/);
   assert.match(workspace, /Upload selected evidence/);
   assert.match(workspace, /Start Deep Investigation/);
+  assert.match(workspace, /role="progressbar"/);
   assert.match(workspace, /job\.progress/);
   assert.match(workspace, /Oracle\/OpenClaw ready/);
   assert.match(workspace, /Maximum appropriate depth/);

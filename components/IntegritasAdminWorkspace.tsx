@@ -935,7 +935,7 @@ export default function IntegritasAdminWorkspace() {
                   className="flex items-center gap-2 border border-white/12 px-4 py-3 text-xs uppercase tracking-[0.14em] text-[#D8D0C2] disabled:opacity-40"
                 >
                   <UploadCloud size={16} />
-                  Add evidence
+                  Upload documents
                 </button>
                 <button
                   type="button"
@@ -1139,8 +1139,15 @@ export default function IntegritasAdminWorkspace() {
 
               {job ? (
                 <>
-                  <div className="mt-5 h-1.5 bg-white/8">
-                    <div className="h-full bg-[#D4AF37]" style={{ width: `${Math.max(0, Math.min(100, job.progress))}%` }} />
+                  <div
+                    className="mt-5 h-1.5 bg-white/8"
+                    role="progressbar"
+                    aria-label="Investigation progress"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.max(0, Math.min(100, job.progress))}
+                  >
+                    <div className="h-full bg-[#D4AF37] transition-[width] duration-500" style={{ width: `${Math.max(0, Math.min(100, job.progress))}%` }} />
                   </div>
                   <div className="mt-4 space-y-2">
                     {stages.map(([key, label], index) => {
