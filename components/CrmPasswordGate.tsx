@@ -41,21 +41,19 @@ export default function CrmPasswordGate() {
           </div>
           <div>
             <p className="font-serif text-xl leading-none">Integritas</p>
-            <p className="mt-1 text-[9px] uppercase tracking-[0.24em] text-[#C5A46E]">Private command center</p>
+            <p className="mt-1 text-[9px] uppercase tracking-[0.24em] text-[#C5A46E]">Private investigations</p>
           </div>
         </div>
 
-        <p className="text-[10px] uppercase tracking-[0.24em] text-[#D4AF37]">First security check</p>
-        <h1 className="mt-3 font-serif text-3xl font-normal sm:text-4xl">Enter the CRM password</h1>
+        <p className="text-[10px] uppercase tracking-[0.24em] text-[#D4AF37]">Private access</p>
+        <h1 className="mt-3 font-serif text-3xl font-normal sm:text-4xl">Enter password</h1>
         <p className="mt-4 text-sm leading-6 text-[#9F9991]">
-          This password gate is required before the authorized analyst sign-in page is shown.
+          Enter the Integritas access password to open the investigation workspace.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-7 space-y-4">
           <div>
-            <label htmlFor="crm-entry-password" className="mb-2 block text-[10px] uppercase tracking-[0.18em] text-[#BDA76F]">
-              Password
-            </label>
+            <label htmlFor="crm-entry-password" className="sr-only">Password</label>
             <div className="relative">
               <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#D4AF37]/70" aria-hidden="true" />
               <input
@@ -70,7 +68,7 @@ export default function CrmPasswordGate() {
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? "crm-entry-error" : undefined}
                 className="h-12 w-full border border-[#D4AF37]/25 bg-[#090909] pl-10 pr-4 text-sm text-[#F7F5F0] outline-none transition focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20"
-                placeholder="Enter password"
+                placeholder="Password"
               />
             </div>
             {error ? (
@@ -85,13 +83,9 @@ export default function CrmPasswordGate() {
             disabled={submitting}
             className="h-12 w-full bg-[#D4AF37] px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#080808] transition hover:bg-[#E4C45F] disabled:cursor-wait disabled:opacity-60"
           >
-            {submitting ? "Verifying…" : "Continue to secure sign-in"}
+            {submitting ? "Opening…" : "Open workspace"}
           </button>
         </form>
-
-        <p className="mt-5 text-[11px] leading-5 text-[#706A63]">
-          Successful entry unlocks the second authentication step only. Supabase analyst authentication and case-level access controls remain required.
-        </p>
       </section>
     </main>
   );

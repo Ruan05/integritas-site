@@ -1,6 +1,6 @@
 const SESSION_COOKIE = "integritas_crm_session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 8;
-const CRM_PASSWORD_SHA256 = "f9432873b593b4f8b26f413a1d9eff9d5f4c0e93c8b8f5728a2165e82322d479";
+const CRM_PASSWORD_SHA256 = "9d8ca7ea18e697e9110a4420107c2589c78bc731cf79ed9206ae900abe96487b";
 
 const encoder = new TextEncoder();
 

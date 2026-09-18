@@ -53,12 +53,13 @@ test("protects the contact and privacy contract", async () => {
   assert.match(worker, /sourcePath\.startsWith\("\/\/"\)/);
 });
 
-test("keeps the live CRM behind the password gate and wired to the bounded OpenClaw investigation flow", async () => {
-  const [crmPage, gate, loginRoute, auth, workspace, browser] = await Promise.all([
+test("keeps the live CRM behind one password and exposes the simple investigation workflow", async () => {
+  const [crmPage, gate, loginRoute, auth, backend, workspace, browser] = await Promise.all([
     source("app/crm/page.tsx"),
     source("components/CrmPasswordGate.tsx"),
     source("app/api/crm/login/route.ts"),
     source("lib/crm-auth.ts"),
+    source("app/api/crm/backend/route.ts"),
     source("components/IntegritasAdminWorkspace.tsx"),
     source("lib/integritas-browser.ts"),
   ]);
@@ -67,22 +68,23 @@ test("keeps the live CRM behind the password gate and wired to the bounded OpenC
   assert.match(crmPage, /CrmPasswordGate/);
   assert.match(crmPage, /IntegritasAdminWorkspace/);
   assert.match(crmPage, /robots:\s*\{ index: false, follow: false \}/);
-  assert.match(gate, /Continue to secure sign-in/);
+  assert.match(gate, /Open workspace/);
   assert.match(gate, /\/api\/crm\/login/);
+  assert.doesNotMatch(gate, /signInWithOtp|setSession|updateUser|secure sign-in link/i);
   assert.match(loginRoute, /CRM_SESSION_SECRET/);
   assert.match(auth, /CRM_PASSWORD_SHA256/);
   assert.match(auth, /SHA-256/);
   assert.match(auth, /HMAC/);
+  assert.match(backend, /INTEGRITAS_CRM_BACKEND_TOKEN/);
+  assert.match(backend, /x-integritas-crm-token/);
   assert.match(workspace, /Upload documents to investigate/);
-  assert.match(workspace, /Upload selected evidence/);
-  assert.match(workspace, /Start Deep Investigation/);
+  assert.match(workspace, /Start investigation/);
+  assert.match(workspace, /Investigation progress/);
+  assert.match(workspace, /Download report/);
+  assert.match(workspace, /Previous investigations/);
+  assert.match(workspace, /depth: "maximum"/);
   assert.match(workspace, /role="progressbar"/);
-  assert.match(workspace, /job\.progress/);
-  assert.match(workspace, /Oracle\/OpenClaw ready/);
-  assert.match(workspace, /Maximum appropriate depth/);
+  assert.doesNotMatch(workspace, /signInWithOtp|Authorized analyst sign-in|Send secure sign-in link/);
   assert.match(browser, /MAX_CASE_DOCUMENTS = 20/);
-  assert.match(browser, /start_case_investigation/);
-  assert.match(browser, /cancel_case_investigation/);
-  assert.match(browser, /retry_case_investigation/);
   assert.match(browser, /worker_version, \[0, 3, 6\]/);
 });
