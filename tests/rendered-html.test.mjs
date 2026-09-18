@@ -53,15 +53,26 @@ test("protects the contact and privacy contract", async () => {
   assert.match(worker, /sourcePath\.startsWith\("\/\/"\)/);
 });
 
-test("keeps the live CRM wired to the bounded OpenClaw investigation flow", async () => {
-  const [crmPage, workspace, browser] = await Promise.all([
+test("keeps the live CRM behind the password gate and wired to the bounded OpenClaw investigation flow", async () => {
+  const [crmPage, gate, loginRoute, auth, workspace, browser] = await Promise.all([
     source("app/crm/page.tsx"),
+    source("components/CrmPasswordGate.tsx"),
+    source("app/api/crm/login/route.ts"),
+    source("lib/crm-auth.ts"),
     source("components/IntegritasAdminWorkspace.tsx"),
     source("lib/integritas-browser.ts"),
   ]);
 
+  assert.match(crmPage, /isValidCrmSession/);
+  assert.match(crmPage, /CrmPasswordGate/);
   assert.match(crmPage, /IntegritasAdminWorkspace/);
   assert.match(crmPage, /robots:\s*\{ index: false, follow: false \}/);
+  assert.match(gate, /Continue to secure sign-in/);
+  assert.match(gate, /\/api\/crm\/login/);
+  assert.match(loginRoute, /CRM_SESSION_SECRET/);
+  assert.match(auth, /CRM_PASSWORD_SHA256/);
+  assert.match(auth, /SHA-256/);
+  assert.match(auth, /HMAC/);
   assert.match(workspace, /Upload documents to investigate/);
   assert.match(workspace, /Upload selected evidence/);
   assert.match(workspace, /Start Deep Investigation/);
