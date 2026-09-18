@@ -52,3 +52,24 @@ test("protects the contact and privacy contract", async () => {
   assert.match(worker, /if \(!env\.IMAGES\)/);
   assert.match(worker, /sourcePath\.startsWith\("\/\/"\)/);
 });
+
+test("keeps the live CRM wired to the bounded OpenClaw investigation flow", async () => {
+  const [crmPage, workspace, browser] = await Promise.all([
+    source("app/crm/page.tsx"),
+    source("components/IntegritasAdminWorkspace.tsx"),
+    source("lib/integritas-browser.ts"),
+  ]);
+
+  assert.match(crmPage, /IntegritasAdminWorkspace/);
+  assert.match(crmPage, /robots:\s*\{ index: false, follow: false \}/);
+  assert.match(workspace, /Upload selected evidence/);
+  assert.match(workspace, /Start Deep Investigation/);
+  assert.match(workspace, /job\.progress/);
+  assert.match(workspace, /Oracle\/OpenClaw ready/);
+  assert.match(workspace, /Maximum appropriate depth/);
+  assert.match(browser, /MAX_CASE_DOCUMENTS = 20/);
+  assert.match(browser, /start_case_investigation/);
+  assert.match(browser, /cancel_case_investigation/);
+  assert.match(browser, /retry_case_investigation/);
+  assert.match(browser, /worker_version, \[0, 3, 4\]/);
+});
