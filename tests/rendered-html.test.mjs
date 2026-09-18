@@ -73,5 +73,5 @@ test("keeps the live CRM wired to the bounded OpenClaw investigation flow", asyn
   assert.match(browser, /start_case_investigation/);
   assert.match(browser, /cancel_case_investigation/);
   assert.match(browser, /retry_case_investigation/);
-  assert.match(browser, /worker_version, \[0, 3, 4\]/);
+  assert.match(browser, /worker_version, \[0, 3, 6\]/);
 });
