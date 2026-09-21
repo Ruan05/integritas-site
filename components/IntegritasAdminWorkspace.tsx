@@ -25,6 +25,7 @@ type CaseRow = {
   created_at: string;
   updated_at?: string;
   status?: string;
+  latest_report?: ReportRow | null;
 };
 
 type JobRow = {
@@ -59,6 +60,32 @@ type Snapshot = {
   sources?: unknown[];
   checks?: unknown[];
 };
+
+type Milestone = { stage: string; label: string };
+
+const MILESTONES: Milestone[] = [
+  { stage: "intake", label: "Intake" },
+  { stage: "scope", label: "Scope" },
+  { stage: "entity_resolution", label: "Entity resolution" },
+  { stage: "plan", label: "Plan" },
+  { stage: "discovery", label: "Discovery" },
+  { stage: "evidence_acquisition", label: "Evidence acquisition" },
+  { stage: "verification", label: "Verification" },
+  { stage: "cross_check", label: "Cross-check" },
+  { stage: "gap_analysis", label: "Gap analysis" },
+  { stage: "research_loop", label: "Research loop" },
+  { stage: "contradiction_resolution", label: "Contradiction resolution" },
+  { stage: "synthesis", label: "Synthesis" },
+  { stage: "independent_qa", label: "Independent QA" },
+  { stage: "draft_report", label: "Draft report" },
+  { stage: "analyst_review", label: "Analyst review" },
+  { stage: "finalize", label: "Finalize" },
+];
+
+const STAGE_ORDER = [
+  "queued", "extracting", "analyzing_documents", "mapping_entities", "planning_research",
+  "researching", "verifying", "cross_checking", "independent_review", "drafting_report", "completed",
+];
 
 const TERMINAL = new Set(["completed", "incomplete", "failed", "cancelled", "research_limit_reached"]);
 
@@ -131,6 +158,16 @@ function downloadMarkdown(report: ReportRow, title: string) {
   URL.revokeObjectURL(url);
 }
 
+function milestoneStatus(index: number, job: JobRow | null, report: ReportRow | null) {
+  if (report?.status === "finalized") return "complete";
+  const current = Math.max(0, STAGE_ORDER.indexOf(job?.stage || "queued"));
+  const completed = Math.floor((Math.max(0, Math.min(100, job?.progress || 0)) / 100) * MILESTONES.length);
+  if (index < Math.max(completed, current)) return "complete";
+  if (index === Math.max(0, Math.min(MILESTONES.length - 1, completed))) return "active";
+  if (job && ["failed", "incomplete", "cancelled"].includes(job.stage)) return "blocked";
+  return "waiting";
+}
+
 export default function IntegritasAdminWorkspace() {
   const [files, setFiles] = useState<File[]>([]);
   const [cases, setCases] = useState<CaseRow[]>([]);
@@ -151,6 +188,21 @@ export default function IntegritasAdminWorkspace() {
   const stage = STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
   const running = Boolean(job && !TERMINAL.has(job.stage));
   const ready = isInvestigationRuntimeReady(runtime);
+
+  const runReportAction = async (action: "review_report" | "finalize_report") => {
+    if (!report?.id) return;
+    setSubmitting(true);
+    try {
+      await crmRequest({ action, reportId: report.id });
+      await loadCase(activeCaseId);
+      await refreshCases(activeCaseId);
+      setNotice(action === "review_report" ? "Report marked as reviewed." : "Report finalized. PDF download is now available.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const refreshCases = async (prefer?: string) => {
     const payload = await crmRequest({ action: "list_cases" });
@@ -383,17 +435,56 @@ export default function IntegritasAdminWorkspace() {
               <span>{progress}%</span>
             </div>
 
+            <div className="mt-6 border-t border-white/8 pt-5">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#BDA76F]">Investigation milestones</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
+                  {MILESTONES.filter((_, index) => milestoneStatus(index, job, report) === "complete").length}/{MILESTONES.length} complete
+                </p>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {MILESTONES.map((milestone, index) => {
+                  const status = milestoneStatus(index, job, report);
+                  return (
+                    <div key={milestone.stage} className={`flex items-center gap-2 border px-3 py-2 text-xs ${status === "complete" ? "border-[#849E68]/35 text-[#CFE4B8]" : status === "active" ? "border-[#D4AF37]/40 text-[#E4C45F]" : status === "blocked" ? "border-[#B96F5C]/40 text-[#D9A597]" : "border-white/8 text-[#706A63]"}`}>
+                      <span aria-hidden="true">{status === "complete" ? "✓" : status === "active" ? "•" : status === "blocked" ? "!" : "○"}</span>
+                      <span>{milestone.label}</span>
+                      <span className="ml-auto text-[9px] uppercase tracking-[0.12em]">{status}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {report?.content_markdown ? (
               <div className="mt-6 border-t border-white/8 pt-5">
                 <p className="text-sm leading-6 text-[#C9C0B3]">{report.summary || "Your report is ready and has been saved to the archive."}</p>
-                <button
-                  type="button"
-                  onClick={() => downloadMarkdown(report, activeCase?.title || "Report")}
-                  className="mt-4 inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-5 text-[10px] font-semibold uppercase tracking-[0.17em] text-[#080808] hover:bg-[#E4C45F]"
-                >
-                  <Download size={14} />
-                  Download report
-                </button>
+                <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[#827A71]">Status: {report.status}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {report.status === "draft" ? (
+                    <button type="button" onClick={() => void runReportAction("review_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
+                      Mark reviewed
+                    </button>
+                  ) : null}
+                  {report.status === "reviewed" ? (
+                    <button type="button" onClick={() => void runReportAction("finalize_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
+                      Finalize report
+                    </button>
+                  ) : null}
+                  {report.status === "finalized" ? (
+                    <>
+                      <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
+                        <FileText size={14} /> Open PDF
+                      </a>
+                      <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}`} download className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
+                        <Download size={14} /> Download report PDF
+                      </a>
+                    </>
+                  ) : null}
+                  <button type="button" onClick={() => downloadMarkdown(report, activeCase?.title || "Report")} className="inline-flex h-11 items-center gap-2 border border-white/10 px-4 text-[10px] uppercase tracking-[0.14em] text-[#A59D94] hover:border-[#D4AF37]/30 hover:text-[#E4C45F]">
+                    <Download size={14} /> Markdown
+                  </button>
+                </div>
               </div>
             ) : null}
           </section>
@@ -424,9 +515,11 @@ export default function IntegritasAdminWorkspace() {
                   className={`border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
                 >
                   <p className="truncate text-sm text-[#DDD4C6]">{item.title}</p>
-                  <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
-                    {new Date(item.created_at).toLocaleDateString("en-ZA")}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
+                    <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
+                    <span>{item.latest_report?.status || item.status || "In progress"}</span>
+                  </div>
+                  {item.latest_report?.summary ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#8F8981]">{item.latest_report.summary}</p> : null}
                 </button>
               ))}
             </div>
