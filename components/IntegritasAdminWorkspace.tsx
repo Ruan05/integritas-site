@@ -8,10 +8,12 @@ import {
   FileText,
   LockKeyhole,
   MoreHorizontal,
+  Pause,
   Plus,
   ShieldCheck,
   Trash2,
   UploadCloud,
+  XCircle,
 } from "lucide-react";
 import {
   MAX_CASE_DOCUMENTS,
@@ -200,6 +202,7 @@ export default function IntegritasAdminWorkspace() {
       && job?.id
       && ["failed", "incomplete", "cancelled", "research_limit_reached"].includes(job.stage),
   );
+  const canStop = Boolean(running && job?.id);
 
   const runReportAction = async (action: "review_report" | "finalize_report") => {
     if (!report?.id) return;
@@ -232,11 +235,34 @@ export default function IntegritasAdminWorkspace() {
     }
   };
 
+  const stopInvestigation = async (intent: "pause" | "cancel") => {
+    if (!job?.id || submitting) return;
+    const pause = intent === "pause";
+    const confirmed = window.confirm(
+      pause
+        ? "Pause this investigation at its next safe checkpoint? Its documents, evidence ledger and recovery checkpoint will be retained so it can be continued later."
+        : "Cancel this investigation at its next safe checkpoint? Its documents and audit history will be retained, but no further work will run unless you explicitly continue it later.",
+    );
+    if (!confirmed) return;
+    setSubmitting(true);
+    setNotice(pause ? "Pausing safely at the next durable checkpoint…" : "Cancelling safely at the next durable checkpoint…");
+    try {
+      await crmRequest({ action: "cancel_case_investigation", case_job_id: job.id });
+      await refreshCases(activeCaseId);
+      await loadCase(activeCaseId);
+      setNotice(pause ? "Investigation paused safely. Use Continue investigation when you are ready." : "Cancellation requested. The worker will stop at its next durable checkpoint.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const archiveCase = async (item: CaseRow) => {
-    if (!window.confirm("Delete this investigation from the archive? Its evidence and audit history will be retained securely.")) return;
+    if (!window.confirm("Archive this investigation? It will disappear from the workspace, while its evidence and audit history remain retained securely.")) return;
     setSubmitting(true);
     setArchiveMenu(null);
-    setNotice("Removing investigation from the archive…");
+    setNotice("Archiving investigation…");
     try {
       await crmRequest({ action: "archive_case", caseId: item.id });
       const nextCases = await refreshCases(activeCaseId === item.id ? undefined : activeCaseId);
@@ -244,7 +270,28 @@ export default function IntegritasAdminWorkspace() {
         setActiveCaseId(nextCases[0]?.id || "");
         setSnapshot(null);
       }
-      setNotice("Investigation removed from the archive.");
+      setNotice("Investigation archived. Evidence remains retained securely.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const deleteCasePermanently = async (item: CaseRow) => {
+    const typed = window.prompt(`Type DELETE to permanently remove “${item.title}”, including uploaded files, report and retained evidence.`);
+    if (typed !== "DELETE") return;
+    setSubmitting(true);
+    setArchiveMenu(null);
+    setNotice("Permanently deleting the investigation and its files…");
+    try {
+      await crmRequest({ action: "purge_case", caseId: item.id, confirmation: "DELETE" });
+      const nextCases = await refreshCases(activeCaseId === item.id ? undefined : activeCaseId);
+      if (activeCaseId === item.id) {
+        setActiveCaseId(nextCases[0]?.id || "");
+        setSnapshot(null);
+      }
+      setNotice("Investigation and uploaded files were permanently deleted.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     } finally {
@@ -513,6 +560,18 @@ export default function IntegritasAdminWorkspace() {
               </div>
             ) : null}
 
+            {canStop ? (
+              <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-white/8 pt-5">
+                <button type="button" onClick={() => void stopInvestigation("pause")} disabled={submitting} className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10 disabled:cursor-not-allowed disabled:opacity-40">
+                  <Pause size={14} /> Pause safely
+                </button>
+                <button type="button" onClick={() => void stopInvestigation("cancel")} disabled={submitting} className="inline-flex h-11 items-center gap-2 border border-[#B96F5C]/50 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:cursor-not-allowed disabled:opacity-40">
+                  <XCircle size={14} /> Cancel investigation
+                </button>
+                <p className="basis-full text-xs leading-5 text-[#7F7871]">Both controls stop only at a durable checkpoint. Pause is intended for later continuation; cancellation records the stop in the audit history.</p>
+              </div>
+            ) : null}
+
             {report?.content_markdown ? (
               <div className="mt-6 border-t border-white/8 pt-5">
                 <p className="text-sm leading-6 text-[#C9C0B3]">{report.summary || "Your report is ready and has been saved to the archive."}</p>
@@ -585,7 +644,8 @@ export default function IntegritasAdminWorkspace() {
                     {archiveMenu === item.id ? (
                       <div role="menu" className="absolute right-0 z-10 mt-1 w-44 border border-white/10 bg-[#151515] p-1 shadow-2xl">
                         <button type="button" role="menuitem" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="flex w-full items-center px-3 py-2 text-left text-xs text-[#DDD4C6] hover:bg-white/5">Open investigation</button>
-                        <button type="button" role="menuitem" onClick={() => void archiveCase(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Trash2 size={13} aria-hidden="true" /> Delete from archive</button>
+                        <button type="button" role="menuitem" onClick={() => void archiveCase(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Archive size={13} aria-hidden="true" /> Archive (keep evidence)</button>
+                        <button type="button" role="menuitem" onClick={() => void deleteCasePermanently(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Trash2 size={13} aria-hidden="true" /> Permanently delete</button>
                       </div>
                     ) : null}
                   </div>

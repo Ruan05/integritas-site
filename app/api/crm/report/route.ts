@@ -31,7 +31,18 @@ export async function GET(request: Request) {
     if (!report?.content_markdown || report.status !== "finalized") {
       return NextResponse.json({ error: "The report must be reviewed and finalized before PDF download." }, { status: 409 });
     }
-    const pdf = createReportPdf(caseTitle, String(report.summary || ""), String(report.content_markdown), new Date().toISOString());
+    const pdf = await createReportPdf(
+      caseTitle,
+      String(report.summary || ""),
+      String(report.content_markdown),
+      new Date().toISOString(),
+      {
+        documents: Array.isArray(snapshot.documents) ? snapshot.documents : [],
+        sources: Array.isArray(snapshot.sources) ? snapshot.sources : [],
+        findings: Array.isArray(snapshot.findings) ? snapshot.findings : [],
+        checks: Array.isArray(snapshot.checks) ? snapshot.checks : [],
+      },
+    );
     const filename = `Integritas - ${caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report"}.pdf`;
     return new NextResponse(pdf, {
       status: 200,
