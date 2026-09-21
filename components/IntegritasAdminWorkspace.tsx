@@ -189,10 +189,17 @@ export default function IntegritasAdminWorkspace() {
   const job = newestJob(snapshot);
   const report = newestReport(snapshot);
   const progress = job?.progress ?? 0;
-  const stage = STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
+  const reportFinalized = report?.status === "finalized";
+  const stage = reportFinalized
+    ? STAGE_COPY.completed
+    : STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
   const running = Boolean(job && !TERMINAL.has(job.stage));
   const ready = isInvestigationRuntimeReady(runtime);
-  const canContinue = Boolean(job?.id && ["failed", "incomplete", "cancelled", "research_limit_reached"].includes(job.stage));
+  const canContinue = Boolean(
+    !reportFinalized
+      && job?.id
+      && ["failed", "incomplete", "cancelled", "research_limit_reached"].includes(job.stage),
+  );
 
   const runReportAction = async (action: "review_report" | "finalize_report") => {
     if (!report?.id) return;
