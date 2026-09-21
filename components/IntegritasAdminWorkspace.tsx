@@ -7,8 +7,10 @@ import {
   Download,
   FileText,
   LockKeyhole,
+  MoreHorizontal,
   Plus,
   ShieldCheck,
+  Trash2,
   UploadCloud,
 } from "lucide-react";
 import {
@@ -26,6 +28,7 @@ type CaseRow = {
   updated_at?: string;
   status?: string;
   latest_report?: ReportRow | null;
+  latest_job?: Pick<JobRow, "id" | "stage" | "progress" | "updated_at"> | null;
 };
 
 type JobRow = {
@@ -176,6 +179,7 @@ export default function IntegritasAdminWorkspace() {
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
+  const [archiveMenu, setArchiveMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const activeCase = useMemo(
@@ -188,6 +192,7 @@ export default function IntegritasAdminWorkspace() {
   const stage = STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
   const running = Boolean(job && !TERMINAL.has(job.stage));
   const ready = isInvestigationRuntimeReady(runtime);
+  const canContinue = Boolean(job?.id && ["failed", "incomplete", "cancelled", "research_limit_reached"].includes(job.stage));
 
   const runReportAction = async (action: "review_report" | "finalize_report") => {
     if (!report?.id) return;
@@ -197,6 +202,42 @@ export default function IntegritasAdminWorkspace() {
       await loadCase(activeCaseId);
       await refreshCases(activeCaseId);
       setNotice(action === "review_report" ? "Report marked as reviewed." : "Report finalized. PDF download is now available.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const continueInvestigation = async () => {
+    if (!job?.id || submitting) return;
+    setSubmitting(true);
+    setNotice("Continuing the investigation from its last safe checkpoint…");
+    try {
+      await crmRequest({ action: "retry_case_investigation", case_job_id: job.id });
+      await refreshCases(activeCaseId);
+      await loadCase(activeCaseId);
+      setNotice("Investigation continued. You can leave this page and return later.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const archiveCase = async (item: CaseRow) => {
+    if (!window.confirm("Delete this investigation from the archive? Its evidence and audit history will be retained securely.")) return;
+    setSubmitting(true);
+    setArchiveMenu(null);
+    setNotice("Removing investigation from the archive…");
+    try {
+      await crmRequest({ action: "archive_case", caseId: item.id });
+      const nextCases = await refreshCases(activeCaseId === item.id ? undefined : activeCaseId);
+      if (activeCaseId === item.id) {
+        setActiveCaseId(nextCases[0]?.id || "");
+        setSnapshot(null);
+      }
+      setNotice("Investigation removed from the archive.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     } finally {
@@ -456,6 +497,15 @@ export default function IntegritasAdminWorkspace() {
               </div>
             </div>
 
+            {canContinue ? (
+              <div className="mt-6 border border-[#D4AF37]/25 bg-[#D4AF37]/[0.045] p-4">
+                <p className="text-sm text-[#DDD4C6]">This run stopped safely before the final report. Continue from the last checkpoint to retry the blocked work.</p>
+                <button type="button" onClick={() => void continueInvestigation()} disabled={submitting} className="mt-4 inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F] disabled:cursor-not-allowed disabled:opacity-40">
+                  Continue investigation
+                </button>
+              </div>
+            ) : null}
+
             {report?.content_markdown ? (
               <div className="mt-6 border-t border-white/8 pt-5">
                 <p className="text-sm leading-6 text-[#C9C0B3]">{report.summary || "Your report is ready and has been saved to the archive."}</p>
@@ -508,19 +558,31 @@ export default function IntegritasAdminWorkspace() {
           {cases.length ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {cases.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => setActiveCaseId(item.id)}
-                  className={`border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
+                  className={`relative border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
                 >
-                  <p className="truncate text-sm text-[#DDD4C6]">{item.title}</p>
-                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
-                    <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
-                    <span>{item.latest_report?.status || item.status || "In progress"}</span>
+                  <button type="button" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="block w-full pr-10 text-left">
+                    <p className="truncate text-sm text-[#DDD4C6]">{item.title}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
+                      <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
+                      <span>{item.latest_report?.status || item.latest_job?.stage || item.status || "In progress"}</span>
+                    </div>
+                    {item.latest_report?.summary ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#8F8981]">{item.latest_report.summary}</p> : null}
+                    {!item.latest_report?.summary && item.latest_job?.stage ? <p className="mt-3 text-xs leading-5 text-[#8F8981]">{item.latest_job.stage.replaceAll("_", " ")} · {item.latest_job.progress ?? 0}%</p> : null}
+                  </button>
+                  <div className="absolute right-3 top-3">
+                    <button type="button" aria-label={`Options for ${item.title}`} title="Investigation options" onClick={() => setArchiveMenu((current) => current === item.id ? null : item.id)} className="inline-flex size-9 items-center justify-center text-[#A59D94] hover:bg-white/5 hover:text-[#E4C45F]">
+                      <MoreHorizontal size={17} aria-hidden="true" />
+                    </button>
+                    {archiveMenu === item.id ? (
+                      <div role="menu" className="absolute right-0 z-10 mt-1 w-44 border border-white/10 bg-[#151515] p-1 shadow-2xl">
+                        <button type="button" role="menuitem" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="flex w-full items-center px-3 py-2 text-left text-xs text-[#DDD4C6] hover:bg-white/5">Open investigation</button>
+                        <button type="button" role="menuitem" onClick={() => void archiveCase(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Trash2 size={13} aria-hidden="true" /> Delete from archive</button>
+                      </div>
+                    ) : null}
                   </div>
-                  {item.latest_report?.summary ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#8F8981]">{item.latest_report.summary}</p> : null}
-                </button>
+                </div>
               ))}
             </div>
           ) : (
