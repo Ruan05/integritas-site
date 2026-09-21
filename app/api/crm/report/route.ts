@@ -8,11 +8,13 @@ export const dynamic = "force-dynamic";
 const ADMIN_API = "https://leuixjgmlueptefintgo.supabase.co/functions/v1/integritas-admin-api";
 
 export async function GET(request: Request) {
+  const url = new URL(request.url);
   const store = await cookies();
   if (!(await isValidCrmSession(store.get(crmSessionCookie.name)?.value))) {
     return NextResponse.json({ error: "Session expired. Enter the CRM password again." }, { status: 401 });
   }
-  const caseId = new URL(request.url).searchParams.get("caseId") || "";
+  const caseId = url.searchParams.get("caseId") || "";
+  const disposition = url.searchParams.get("download") === "1" ? "attachment" : "inline";
   const token = process.env.INTEGRITAS_CRM_BACKEND_TOKEN;
   if (!token || !/^[0-9a-f-]{36}$/i.test(caseId)) return NextResponse.json({ error: "Report is unavailable." }, { status: 400 });
   try {
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         "content-type": "application/pdf",
-        "content-disposition": `attachment; filename="${filename}"`,
+        "content-disposition": `${disposition}; filename="${filename}"`,
         "cache-control": "no-store",
         "x-content-type-options": "nosniff",
       },
