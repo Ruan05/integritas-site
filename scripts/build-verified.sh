@@ -19,6 +19,10 @@ if [[ ! -x "${vinext}" ]]; then
 fi
 
 echo "Running bounded vinext build..."
+# Always build from a clean generated-output boundary. Vinext can leave old
+# hashed chunks in dist/; packaging those stale assets can make the entry
+# manifest point at code that is not part of the current source commit.
+rm -rf "${SITES_PROJECT_ROOT}/dist"
 timeout \
   --signal=TERM \
   --kill-after="${SITES_BUILD_KILL_AFTER:-10s}" \
