@@ -128,7 +128,8 @@ async function crmRequest(body: Record<string, unknown>) {
 
 async function uploadFile(caseId: string, file: File) {
   const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : file.name.toLowerCase().endsWith(".csv") ? "text/csv" : file.name.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain");
-  const idempotencyKey = `crm:${caseId}:${file.name}:${file.size}:${file.lastModified}`;
+  const safeName = file.name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80) || "document";
+  const idempotencyKey = `crm:${caseId}:${safeName}:${file.size}:${file.lastModified}`.slice(0, 160);
   const reservationResponse = await crmRequest({
     action: "reserve_upload",
     caseId,
