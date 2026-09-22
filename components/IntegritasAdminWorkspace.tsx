@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as tus from "tus-js-client";
+import { integritasSupabase } from "@/lib/integritas-supabase";
 import {
   Archive,
   CheckCircle2,
@@ -125,14 +127,50 @@ async function crmRequest(body: Record<string, unknown>) {
 }
 
 async function uploadFile(caseId: string, file: File) {
-  const form = new FormData();
-  form.set("action", "upload");
-  form.set("caseId", caseId);
-  form.set("file", file);
-  const response = await fetch("/api/crm/backend", { method: "POST", body: form });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(payload?.error || `Upload failed for ${file.name}.`));
-  return payload;
+  const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : file.name.toLowerCase().endsWith(".csv") ? "text/csv" : file.name.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain");
+  const idempotencyKey = `crm:${caseId}:${file.name}:${file.size}:${file.lastModified}`;
+  const reservationResponse = await crmRequest({
+    action: "reserve_upload",
+    caseId,
+    name: file.name,
+    mime,
+    size: file.size,
+    idempotencyKey,
+  });
+  if (reservationResponse.finalized) return reservationResponse;
+
+  if (file.size > 6 * 1024 * 1024) {
+    await new Promise<void>((resolve, reject) => {
+      const upload = new tus.Upload(file, {
+        endpoint: String(reservationResponse.resumableEndpoint),
+        chunkSize: 6 * 1024 * 1024,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: { "x-signature": String(reservationResponse.uploadToken) },
+        metadata: {
+          bucketName: String(reservationResponse.bucket),
+          objectName: String(reservationResponse.objectPath),
+          contentType: mime,
+        },
+        fingerprint: async () => [String(reservationResponse.reservationId), file.name, String(file.size), String(file.lastModified)],
+        onError: reject,
+        onSuccess: () => resolve(),
+      });
+      upload.findPreviousUploads().then((previous) => {
+        if (previous.length) upload.resumeFromPreviousUpload(previous[0]);
+        upload.start();
+      }).catch(reject);
+    });
+  } else {
+    const result = await integritasSupabase.storage
+      .from(String(reservationResponse.bucket))
+      .uploadToSignedUrl(String(reservationResponse.objectPath), String(reservationResponse.uploadToken), file, {
+        contentType: mime,
+        upsert: false,
+      });
+    if (result.error) throw result.error;
+  }
+
+  return crmRequest({ action: "finalize_upload", reservationId: reservationResponse.reservationId });
 }
 
 function newestJob(snapshot: Snapshot | null) {
@@ -372,8 +410,8 @@ export default function IntegritasAdminWorkspace() {
     try {
       if (!next.length) return;
       if (next.length > MAX_CASE_DOCUMENTS) throw new Error(`Choose no more than ${MAX_CASE_DOCUMENTS} files.`);
-      const invalid = next.find((file) => file.size > 5 * 1024 * 1024);
-      if (invalid) throw new Error(`${invalid.name} is larger than 5 MB.`);
+      const invalid = next.find((file) => file.size > 50 * 1024 * 1024);
+      if (invalid) throw new Error(`${invalid.name} is larger than 50 MB.`);
       setFiles(next);
       setNotice("");
     } catch (error) {
@@ -478,7 +516,7 @@ export default function IntegritasAdminWorkspace() {
           >
             <UploadCloud size={32} className="text-[#D4AF37]" aria-hidden="true" />
             <span className="mt-4 text-base font-medium text-[#EEE5D3]">Upload documents to investigate</span>
-            <span className="mt-2 text-xs leading-5 text-[#7F7871]">PDF, TXT, Markdown or CSV · up to 20 files · 5 MB per file</span>
+            <span className="mt-2 text-xs leading-5 text-[#7F7871]">PDF, TXT, Markdown or CSV · up to 20 files · 50 MB per file</span>
           </button>
 
           {files.length ? (
