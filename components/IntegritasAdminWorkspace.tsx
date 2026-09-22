@@ -45,7 +45,13 @@ type JobRow = {
   runtime_provider?: string;
   created_at?: string;
   updated_at?: string;
+  safe_metadata?: Record<string, unknown>;
+  checkpoint_metadata?: Record<string, unknown>;
+  checkpoint?: CheckpointRow;
+  latest_checkpoint?: CheckpointRow;
 };
+
+type CheckpointRow = { stage?: string; progress?: number; safe_metadata?: Record<string, unknown>; created_at?: string; case_job_id?: string };
 
 type ReportRow = {
   id: string;
@@ -66,32 +72,20 @@ type Snapshot = {
   findings?: unknown[];
   sources?: unknown[];
   checks?: unknown[];
+  checkpoints?: CheckpointRow[];
 };
 
 type Milestone = { stage: string; label: string };
 
 const MILESTONES: Milestone[] = [
-  { stage: "intake", label: "Intake" },
-  { stage: "scope", label: "Scope" },
-  { stage: "entity_resolution", label: "Entity resolution" },
-  { stage: "plan", label: "Plan" },
-  { stage: "discovery", label: "Discovery" },
-  { stage: "evidence_acquisition", label: "Evidence acquisition" },
-  { stage: "verification", label: "Verification" },
-  { stage: "cross_check", label: "Cross-check" },
-  { stage: "gap_analysis", label: "Gap analysis" },
-  { stage: "research_loop", label: "Research loop" },
-  { stage: "contradiction_resolution", label: "Contradiction resolution" },
-  { stage: "synthesis", label: "Synthesis" },
-  { stage: "independent_qa", label: "Independent QA" },
-  { stage: "draft_report", label: "Draft report" },
-  { stage: "analyst_review", label: "Analyst review" },
-  { stage: "finalize", label: "Finalize" },
-];
-
-const STAGE_ORDER = [
-  "queued", "extracting", "analyzing_documents", "mapping_entities", "planning_research",
-  "researching", "verifying", "cross_checking", "independent_review", "drafting_report", "completed",
+  { stage: "extraction", label: "Page extraction and OCR" },
+  { stage: "routing", label: "Adaptive route selection" },
+  { stage: "normalization", label: "Entity, role and transaction normalization" },
+  { stage: "research", label: "Specialist research lanes" },
+  { stage: "critic", label: "Independent critic and revision" },
+  { stage: "assembly", label: "Structured dossier assembly" },
+  { stage: "qa", label: "Semantic and deterministic QA" },
+  { stage: "commit", label: "Private PDF/artifact commit" },
 ];
 
 const TERMINAL = new Set(["completed", "incomplete", "failed", "cancelled", "research_limit_reached"]);
@@ -202,14 +196,38 @@ function downloadMarkdown(report: ReportRow, title: string) {
   URL.revokeObjectURL(url);
 }
 
-function milestoneStatus(index: number, job: JobRow | null, report: ReportRow | null) {
-  if (report?.status === "finalized") return "complete";
-  const current = Math.max(0, STAGE_ORDER.indexOf(job?.stage || "queued"));
-  const completed = Math.floor((Math.max(0, Math.min(100, job?.progress || 0)) / 100) * MILESTONES.length);
-  if (index < Math.max(completed, current)) return "complete";
-  if (index === Math.max(0, Math.min(MILESTONES.length - 1, completed))) return "active";
-  if (job && ["failed", "incomplete", "cancelled"].includes(job.stage)) return "blocked";
-  return "waiting";
+function liveCheckpoint(job: JobRow, snapshot: Snapshot | null) {
+  const rows = (snapshot?.checkpoints ?? []).filter((row) => !row.case_job_id || row.case_job_id === job.id);
+  return job.latest_checkpoint ?? job.checkpoint ?? rows.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))[0];
+}
+
+function currentSubmodule(job: JobRow, snapshot: Snapshot | null) {
+  const checkpoint = liveCheckpoint(job, snapshot);
+  const metadata = checkpoint?.safe_metadata ?? job.checkpoint_metadata ?? job.safe_metadata ?? {};
+  const phase = String(metadata.current_submodule ?? metadata.submodule ?? metadata.phase ?? checkpoint?.stage ?? job.stage);
+  const stage = phase.toLowerCase().replaceAll(/[^a-z0-9]+/g, "_");
+  const lane = Number(metadata.lane_index ?? metadata.lane_number ?? metadata.current_lane);
+  const total = Number(metadata.lane_total ?? metadata.total_lanes);
+  const detail = String(metadata.detail ?? metadata.phase_detail ?? metadata.current_detail ?? "").trim();
+  const label = /ocr|extract/.test(stage) ? MILESTONES[0].label
+    : /route|plan/.test(stage) ? MILESTONES[1].label
+    : /entity|normaliz|mapping|analyz/.test(stage) ? MILESTONES[2].label
+    : /research|lane|verif|cross_check/.test(stage) ? MILESTONES[3].label
+    : /critic|independent|revision/.test(stage) ? MILESTONES[4].label
+    : /dossier|assembl|draft|synthes/.test(stage) ? MILESTONES[5].label
+    : /qa|quality/.test(stage) ? MILESTONES[6].label
+    : /pdf|artifact|commit|publish|complet/.test(stage) ? MILESTONES[7].label
+    : phase.replaceAll("_", " ");
+  return { label, detail, lane: Number.isInteger(lane) && lane > 0 && Number.isInteger(total) && total > 0 ? `Lane ${lane}/${total}` : "" };
+}
+
+function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot | null) {
+  const current = currentSubmodule(job, snapshot);
+  const active = MILESTONES.findIndex((item) => item.label === current.label);
+  if (TERMINAL.has(job.stage)) return job.stage === "completed" ? "complete" : index === active ? "blocked" : "waiting";
+  if (active < 0) return "waiting";
+  if (index < active) return "complete";
+  return index === active ? "active" : "waiting";
 }
 
 export default function IntegritasAdminWorkspace() {
@@ -230,6 +248,7 @@ export default function IntegritasAdminWorkspace() {
   const job = newestJob(snapshot);
   const report = newestReport(snapshot);
   const progress = job?.progress ?? 0;
+  const submodule = job ? currentSubmodule(job, snapshot) : null;
   const reportFinalized = report?.status === "finalized";
   const stage = reportFinalized
     ? STAGE_COPY.completed
@@ -572,13 +591,18 @@ export default function IntegritasAdminWorkspace() {
             <div className="mt-6 border-t border-white/8 pt-5">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-[#BDA76F]">Investigation milestones</p>
-                <p className="text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
-                  {MILESTONES.filter((_, index) => milestoneStatus(index, job, report) === "complete").length}/{MILESTONES.length} complete
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[#BDA76F]">
+                  {TERMINAL.has(job.stage) ? `${progress}% final progress` : `${progress}% live progress`}
                 </p>
+              </div>
+              <div className="mt-3 border border-[#D4AF37]/20 bg-[#D4AF37]/[0.04] px-3 py-3 text-xs leading-5 text-[#DDD4C6]">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-[#BDA76F]">Current submodule</p>
+                <p className="mt-1">{submodule?.label}{submodule?.lane ? ` · ${submodule.lane}` : ""}</p>
+                {submodule?.detail ? <p className="mt-1 break-words text-[#9D968F]">{submodule.detail}</p> : null}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {MILESTONES.map((milestone, index) => {
-                  const status = milestoneStatus(index, job, report);
+                  const status = milestoneStatus(index, job, snapshot);
                   return (
                     <div key={milestone.stage} className={`flex items-center gap-2 border px-3 py-2 text-xs ${status === "complete" ? "border-[#849E68]/35 text-[#CFE4B8]" : status === "active" ? "border-[#D4AF37]/40 text-[#E4C45F]" : status === "blocked" ? "border-[#B96F5C]/40 text-[#D9A597]" : "border-white/8 text-[#706A63]"}`}>
                       <span aria-hidden="true">{status === "complete" ? "✓" : status === "active" ? "•" : status === "blocked" ? "!" : "○"}</span>
