@@ -135,7 +135,7 @@ async function uploadFile(caseId: string, file: File) {
     name: file.name,
     mime,
     size: file.size,
-    idempotencyKey,
+    idempotency_key: idempotencyKey,
   });
   if (reservationResponse.finalized) return reservationResponse;
 
