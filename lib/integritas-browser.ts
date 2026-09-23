@@ -1,5 +1,6 @@
 export const MAX_CASE_DOCUMENTS = 20;
 export const SUPPORTED_CASE_FILE_ACCEPT = '.pdf,.txt,.md,.csv';
+export const MAX_CASE_FILE_BYTES = 50 * 1024 * 1024;
 
 export function getIntegritasFunctionUrls(
   supabaseUrl: string,
@@ -202,7 +203,7 @@ export function createIntegritasBrowserClient(options: BrowserClientOptions) {
   };
 }
 
-export type CheckpointRow = { id: string; stage: string; progress: number; safe_metadata: Record<string, unknown>; created_at: string };
+export type CheckpointRow = { id: string; attempt?: number; stage: string; progress: number; safe_metadata: Record<string, unknown>; created_at: string; updated_at?: string };
 export type EntityResultRow = { id: string; entity_key: string; entity_type: string; display_name: string; match_status: string; match_confidence: number | null; identifiers: Record<string, unknown>; aliases: string[] };
 export type RelationshipResultRow = { id: string; relationship_key: string; from_entity_id: string; to_entity_id: string; relationship_type: string; claim: string; evidence_status: string; confidence: number | null };
 export type FindingResultRow = { id: string; finding_key: string; finding_type: string; claim: string; evidence_status: string; materiality: string; reliability: string; source_ids: string[] };
@@ -249,7 +250,7 @@ export async function loadPersistedInvestigationResults(
     checkpoints, entities, relationships, findings, sources,
     sourceLinks, checks, reports, auditEvents,
   ] = await Promise.all([
-    readRlsRows(client, 'integritas_case_job_checkpoints', 'id,stage,progress,safe_metadata,created_at', caseId, jobId),
+    readRlsRows(client, 'integritas_case_job_checkpoints', 'id,attempt,stage,progress,safe_metadata,created_at,updated_at', caseId, jobId),
     readRlsRows(client, 'integritas_entities', 'id,entity_key,entity_type,display_name,match_status,match_confidence,identifiers,aliases', caseId, jobId),
     readRlsRows(client, 'integritas_relationships', 'id,relationship_key,from_entity_id,to_entity_id,relationship_type,claim,evidence_status,confidence', caseId, jobId),
 
