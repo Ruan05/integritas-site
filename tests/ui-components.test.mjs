@@ -82,6 +82,25 @@ test("does not mark the PDF milestone blocked when an incomplete run committed a
   assert.equal(milestoneStatus(0, job, snapshot), "complete");
 });
 
+test("does not reuse a previous attempt checkpoint for the current PDF milestone", async () => {
+  const { milestoneStatus } = await vite.ssrLoadModule("/components/IntegritasAdminWorkspace.tsx");
+  const job = { id: "job-1", stage: "incomplete", progress: 100, current_attempt: 21 };
+  const snapshot = {
+    checkpoints: [{
+      case_job_id: "job-1",
+      attempt: 20,
+      stage: "incomplete",
+      progress: 100,
+      safe_metadata: {
+        render_status: "ready",
+        pdf_sha256: "5d72ba3a5b89fb9fd6aea62f0da2bdbe0f4eb1efd5ed083ad48bbfcecefa6706",
+      },
+    }],
+  };
+
+  assert.equal(milestoneStatus(7, job, snapshot), "blocked");
+});
+
 test("emits chart themes for the starter's media dark mode", async () => {
   const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
   const html = renderToStaticMarkup(

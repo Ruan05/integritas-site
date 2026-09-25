@@ -202,7 +202,9 @@ function liveCheckpoint(job: JobRow, snapshot: Snapshot | null) {
     .filter((row) => !row.case_job_id || row.case_job_id === job.id)
     .filter((row) => !Number.isInteger(job.current_attempt) || row.attempt === job.current_attempt)
     .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")));
-  return rows[0] ?? job.latest_checkpoint ?? job.checkpoint;
+  const jobCheckpoint = [job.latest_checkpoint, job.checkpoint]
+    .find((row) => row && (!Number.isInteger(job.current_attempt) || row.attempt === job.current_attempt));
+  return rows[0] ?? jobCheckpoint;
 }
 
 function committedPdfReady(job: JobRow, snapshot: Snapshot | null) {
