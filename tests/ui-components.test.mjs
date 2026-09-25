@@ -101,6 +101,31 @@ test("does not reuse a previous attempt checkpoint for the current PDF milestone
   assert.equal(milestoneStatus(7, job, snapshot), "blocked");
 });
 
+test("removes duplicated executive markdown from the CRM PDF renderer", async () => {
+  const { createReportPdf } = await vite.ssrLoadModule("/lib/report-pdf.ts");
+  const executive = [
+    "# MASTER SUMMARY — READ THIS FIRST",
+    "",
+    "Executive Decision Summary",
+    "",
+    "**Decision status:** INCOMPLETE",
+    "",
+    "The submitted evidence remains subject to unresolved gates.",
+    "",
+    "## DIRECT NEXT STEPS — WHAT TO DO NOW",
+    "",
+    "1. Obtain authoritative confirmation.",
+  ].join("\n");
+  const content = `${executive}\n\n# DOCUMENT, FORENSIC & ENTITY REVIEW\n\nDocument findings.`;
+  const pdf = Buffer.from(createReportPdf("Case", executive, content, "2026-09-25T00:00:00.000Z"));
+  const text = pdf.toString("utf8");
+
+  assert.doesNotMatch(text, /# MASTER SUMMARY/);
+  assert.doesNotMatch(text, /\*\*Decision status:\*\*/);
+  assert.match(text, /DIRECT NEXT STEPS - WHAT TO DO NOW/);
+  assert.match(text, /DOCUMENT, FORENSIC & ENTITY REVIEW/);
+});
+
 test("emits chart themes for the starter's media dark mode", async () => {
   const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
   const html = renderToStaticMarkup(

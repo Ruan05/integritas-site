@@ -85,6 +85,20 @@ function clean(value: string) {
     .trim();
 }
 
+function summaryForDisplay(value: string) {
+  const text = String(value ?? '').replace(/^# MASTER SUMMARY — READ THIS FIRST\s*/i, '').trim();
+  const nextSection = text.search(/\n#{1,2}\s+/);
+  return clean((nextSection >= 0 ? text.slice(0, nextSection) : text).slice(0, 3600));
+}
+
+function reportBodyWithoutExecutiveDuplicate(value: string) {
+  const text = String(value ?? '').trim();
+  const master = text.search(/^# MASTER SUMMARY — READ THIS FIRST\s*/im);
+  if (master < 0) return text;
+  const direct = text.search(/^## DIRECT NEXT STEPS — WHAT TO DO NOW\s*/im);
+  return direct >= 0 ? text.slice(direct).trim() : text;
+}
+
 function isDivider(line: string) { return /^\s*\|?\s*:?-{2,}/.test(line); }
 function tableRow(line: string) { return line.split("|").map((cell) => clean(cell)).filter(Boolean).join("  -  "); }
 
@@ -196,7 +210,7 @@ function cover(title: string, summary: string, generatedAt: string, context: Rep
   rule(page, MARGIN, 174, BODY_W, 2, colors.gold);
   const titleLines = wrap(clean(title), 16, 430);
   titleLines.slice(0, 3).forEach((line, index) => text(page, line, MARGIN, 240 + index * 25, 16, "F1", [0.85, 0.82, 0.76]));
-  const summaryLines = wrap(clean(summary || "Structured evidence review and due-diligence analysis."), 10.5, 490);
+  const summaryLines = wrap(summaryForDisplay(summary || "Structured evidence review and due-diligence analysis."), 10.5, 490);
   summaryLines.slice(0, 7).forEach((line, index) => text(page, line, MARGIN, 340 + index * 17, 10.5, "F1", [0.78, 0.75, 0.7]));
   const stats = [[context.documents?.length || 0, "SUBMITTED DOCUMENTS"], [context.sources?.length || 0, "EVIDENCE SOURCES"], [context.findings?.length || 0, "RECORDED FINDINGS"]] as const;
   stats.forEach(([value, label], index) => {
@@ -218,9 +232,9 @@ export function createReportPdf(title: string, summary: string, content: string,
   const pages: PdfPage[] = [cover(title, summary, generatedAt, context), standardPage()];
   const body = pages[pages.length - 1];
   heading(pages, "Executive decision summary");
-  paragraph(pages, summary || "No executive summary was supplied.", { panel: true });
+  paragraph(pages, summaryForDisplay(summary || "No executive summary was supplied."), { panel: true });
   evidencePanel(pages, context);
-  for (const block of parseMarkdown(content)) {
+  for (const block of parseMarkdown(reportBodyWithoutExecutiveDuplicate(content))) {
     if (block.type === "heading") heading(pages, block.text);
     else if (block.type === "bullet") paragraph(pages, block.text, { bullet: true });
     else if (block.type === "table") block.rows.forEach((row) => paragraph(pages, row, { panel: true }));
