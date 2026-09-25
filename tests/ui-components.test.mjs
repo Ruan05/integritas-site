@@ -56,6 +56,32 @@ test("forwards progress semantics to the primitive", async () => {
   assert.match(html, /data-state="loading"/);
 });
 
+test("does not mark the PDF milestone blocked when an incomplete run committed a PDF", async () => {
+  const { milestoneStatus } = await vite.ssrLoadModule("/components/IntegritasAdminWorkspace.tsx");
+  const job = {
+    id: "job-1",
+    stage: "incomplete",
+    progress: 100,
+    current_attempt: 21,
+  };
+  const snapshot = {
+    checkpoints: [{
+      case_job_id: "job-1",
+      attempt: 21,
+      stage: "incomplete",
+      progress: 100,
+      updated_at: "2026-09-25T14:45:55.104Z",
+      safe_metadata: {
+        render_status: "ready",
+        pdf_sha256: "5d72ba3a5b89fb9fd6aea62f0da2bdbe0f4eb1efd5ed083ad48bbfcecefa6706",
+      },
+    }],
+  };
+
+  assert.equal(milestoneStatus(7, job, snapshot), "complete");
+  assert.equal(milestoneStatus(0, job, snapshot), "complete");
+});
+
 test("emits chart themes for the starter's media dark mode", async () => {
   const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
   const html = renderToStaticMarkup(

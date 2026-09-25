@@ -45,13 +45,14 @@ type JobRow = {
   runtime_provider?: string;
   created_at?: string;
   updated_at?: string;
+  current_attempt?: number;
   safe_metadata?: Record<string, unknown>;
   checkpoint_metadata?: Record<string, unknown>;
   checkpoint?: CheckpointRow;
   latest_checkpoint?: CheckpointRow;
 };
 
-type CheckpointRow = { stage?: string; progress?: number; safe_metadata?: Record<string, unknown>; created_at?: string; case_job_id?: string };
+type CheckpointRow = { stage?: string; progress?: number; attempt?: number; safe_metadata?: Record<string, unknown>; created_at?: string; updated_at?: string; case_job_id?: string };
 
 type ReportRow = {
   id: string;
@@ -197,8 +198,18 @@ function downloadMarkdown(report: ReportRow, title: string) {
 }
 
 function liveCheckpoint(job: JobRow, snapshot: Snapshot | null) {
-  const rows = (snapshot?.checkpoints ?? []).filter((row) => !row.case_job_id || row.case_job_id === job.id);
-  return job.latest_checkpoint ?? job.checkpoint ?? rows.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))[0];
+  const rows = (snapshot?.checkpoints ?? [])
+    .filter((row) => !row.case_job_id || row.case_job_id === job.id)
+    .filter((row) => !Number.isInteger(job.current_attempt) || row.attempt === job.current_attempt)
+    .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")));
+  return rows[0] ?? job.latest_checkpoint ?? job.checkpoint;
+}
+
+function committedPdfReady(job: JobRow, snapshot: Snapshot | null) {
+  const checkpoint = liveCheckpoint(job, snapshot);
+  return checkpoint?.safe_metadata?.render_status === "ready"
+    && typeof checkpoint.safe_metadata?.pdf_sha256 === "string"
+    && checkpoint.safe_metadata.pdf_sha256.length === 64;
 }
 
 function currentSubmodule(job: JobRow, snapshot: Snapshot | null) {
@@ -221,10 +232,13 @@ function currentSubmodule(job: JobRow, snapshot: Snapshot | null) {
   return { label, detail, lane: Number.isInteger(lane) && lane > 0 && Number.isInteger(total) && total > 0 ? `Lane ${lane}/${total}` : "" };
 }
 
-function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot | null) {
+export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot | null) {
   const current = currentSubmodule(job, snapshot);
   const active = MILESTONES.findIndex((item) => item.label === current.label);
-  if (TERMINAL.has(job.stage)) return job.stage === "completed" ? "complete" : index === active ? "blocked" : "waiting";
+  if (TERMINAL.has(job.stage)) {
+    if (job.stage === "completed" || committedPdfReady(job, snapshot)) return index <= MILESTONES.length - 1 ? "complete" : "waiting";
+    return index === active ? "blocked" : "waiting";
+  }
   if (active < 0) return "waiting";
   if (index < active) return "complete";
   return index === active ? "active" : "waiting";
@@ -258,7 +272,8 @@ export default function IntegritasAdminWorkspace() {
   const canContinue = Boolean(
     !reportFinalized
       && job?.id
-      && ["failed", "incomplete", "cancelled", "research_limit_reached"].includes(job.stage),
+      && ["failed", "incomplete", "cancelled", "research_limit_reached"].includes(job.stage)
+      && !committedPdfReady(job, snapshot),
   );
   const canStop = Boolean(running && job?.id);
 
