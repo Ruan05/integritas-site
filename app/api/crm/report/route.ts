@@ -41,6 +41,9 @@ export async function GET(request: Request) {
         sources: Array.isArray(snapshot.sources) ? snapshot.sources : [],
         findings: Array.isArray(snapshot.findings) ? snapshot.findings : [],
         checks: Array.isArray(snapshot.checks) ? snapshot.checks : [],
+        entities: Array.isArray(snapshot.entities) ? snapshot.entities : [],
+        relationships: Array.isArray(snapshot.relationships) ? snapshot.relationships : [],
+        reportStatus: String(report.status || ""),
       },
     );
     const filename = `Integritas - ${caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report"}.pdf`;

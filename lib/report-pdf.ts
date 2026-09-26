@@ -5,6 +5,9 @@ type ReportContext = {
   sources?: Array<{ evidence_origin?: string | null; source_type?: string | null }>;
   findings?: unknown[];
   checks?: Array<{ status?: string | null }>;
+  entities?: Array<{ display_name?: string | null; entity_type?: string | null; match_status?: string | null; match_confidence?: number | null }>;
+  relationships?: Array<{ claim?: string | null; relationship_type?: string | null; evidence_status?: string | null }>;
+  reportStatus?: string | null;
 };
 
 type Block =
@@ -75,6 +78,9 @@ function wrap(value: string, size: number, width = BODY_W) {
 
 function clean(value: string) {
   return value
+    .replace(/\\\\n/g, "\n")
+    .replace(/\\\\r/g, "\n")
+    .replace(/\\\\t/g, " ")
     .replace(/\[(.*?)\]\([^)]*\)/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/\*{1,3}([^*]+)\*{1,3}/g, "$1")
@@ -201,6 +207,80 @@ function evidencePanel(pages: PdfPage[], context: ReportContext) {
   page.cursor += 137;
 }
 
+function statusCounts(values: unknown[]) {
+  const counts = new Map<string, number>();
+  values.forEach((value) => {
+    const key = typeof value === "string" && value.trim() ? value.trim().toLowerCase() : "unknown";
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function qualityDashboard(pages: PdfPage[], context: ReportContext) {
+  const findings = context.findings || [];
+  const sources = context.sources || [];
+  const checks = context.checks || [];
+  const sourceExternal = sources.filter((source) => source?.evidence_origin === "external_research").length;
+  const validatedExternal = sources.filter((source) => source?.evidence_origin === "external_research" && source?.source_type === "validated").length;
+  const uncertain = statusCounts(findings.map((item) => typeof item === "object" && item !== null ? (item as { evidence_status?: string }).evidence_status : "unknown"));
+  const complete = checks.filter((item) => item?.status === "complete").length;
+  const page = ensure(pages, 142);
+  rect(page, MARGIN, page.cursor, BODY_W, 130, colors.panel);
+  text(page, "QUALITY AND CLOSURE DASHBOARD", MARGIN + 12, page.cursor + 17, 8, "F2", [0.42, 0.32, 0.13], 1.1);
+  const cards = [
+    [`${validatedExternal}/${sourceExternal}`, "VALIDATED EXTERNAL"],
+    [`${complete}/${checks.length || 0}`, "CHECKS COMPLETE"],
+    [`${uncertain.find(([key]) => key === "uncertain")?.[1] || 0}`, "UNCERTAIN FINDINGS"],
+    [`${context.reportStatus || "UNSPECIFIED"}`.toUpperCase(), "REPORT STATUS"],
+  ];
+  cards.forEach(([value, label], index) => {
+    const x = MARGIN + 12 + index * 124;
+    rect(page, x, page.cursor + 31, 112, 43, colors.parchment);
+    text(page, value.slice(0, 18), x + 8, page.cursor + 53, value.length > 10 ? 9 : 17, "F2", colors.ink);
+    text(page, label, x + 8, page.cursor + 68, 6.3, "F2", colors.muted, 0.55);
+  });
+  text(page, "Interpretation: opened sources are not validated sources; unresolved gates remain open until claim-level evidence is promoted.", MARGIN + 12, page.cursor + 94, 7.4, "F1", colors.ink);
+  text(page, "Findings by evidence status:", MARGIN + 12, page.cursor + 111, 7.2, "F2", colors.muted);
+  uncertain.slice(0, 6).forEach(([key, value], index) => text(page, `${key}: ${value}`, MARGIN + 112 + index * 78, page.cursor + 111, 6.8, "F1", colors.ink));
+  page.cursor += 150;
+}
+
+function relationshipMap(pages: PdfPage[], context: ReportContext) {
+  const entities = context.entities || [];
+  const relationships = context.relationships || [];
+  heading(pages, "Evidence relationship map");
+  paragraph(pages, "The map represents submitted or ledger-recorded relationships only. It is not proof of ownership, authority, common control or transaction performance.");
+  const page = ensure(pages, 160);
+  const names = entities.slice(0, 6).map((entity) => String(entity.display_name || "Unnamed entity").slice(0, 24));
+  const points = names.length ? names : ["No entity records persisted"];
+  const coords = points.map((_, index) => [MARGIN + 55 + (index % 3) * 168, page.cursor + 24 + Math.floor(index / 3) * 62]);
+  relationships.slice(0, 6).forEach((_, index) => {
+    const a = coords[index % coords.length];
+    const b = coords[(index + 1) % coords.length];
+    page.commands.push(`q ${rgb(colors.gold)} RG 1 w ${a[0] + 43} ${(PAGE_H - (a[1] + 17)).toFixed(2)} m ${b[0] - 43} ${(PAGE_H - (b[1] + 17)).toFixed(2)} l S Q`);
+  });
+  points.forEach((name, index) => {
+    const [left, top] = coords[index];
+    rect(page, left - 43, top, 86, 34, index % 2 ? colors.panel : colors.parchment);
+    text(page, name.slice(0, 20), left - 37, top + 15, 6.4, "F2", colors.ink);
+    text(page, String(entities[index]?.entity_type || "entity").slice(0, 16), left - 37, top + 26, 5.8, "F1", colors.muted);
+  });
+  page.cursor += 140;
+}
+
+function closureRegister(pages: PdfPage[], context: ReportContext) {
+  heading(pages, "Closure register");
+  const checks = context.checks || [];
+  if (!checks.length) {
+    paragraph(pages, "No check records were supplied to the PDF renderer. The absence of check rows is treated as an unresolved reporting limitation.", { panel: true });
+    return;
+  }
+  checks.slice(0, 18).forEach((check) => {
+    const status = String(check.status || "unknown").toUpperCase();
+    paragraph(pages, `${status} - ${String((check as { description?: string }).description || (check as { check_key?: string }).check_key || "Unnamed check")}`, { panel: status !== "COMPLETE" });
+  });
+}
+
 function cover(title: string, summary: string, generatedAt: string, context: ReportContext): PdfPage {
   const page: PdfPage = { commands: [], cursor: 0, dark: true };
   rect(page, 0, 0, PAGE_W, PAGE_H, colors.black);
@@ -234,12 +314,15 @@ export function createReportPdf(title: string, summary: string, content: string,
   heading(pages, "Executive decision summary");
   paragraph(pages, summaryForDisplay(summary || "No executive summary was supplied."), { panel: true });
   evidencePanel(pages, context);
+  qualityDashboard(pages, context);
+  relationshipMap(pages, context);
   for (const block of parseMarkdown(reportBodyWithoutExecutiveDuplicate(content))) {
     if (block.type === "heading") heading(pages, block.text);
     else if (block.type === "bullet") paragraph(pages, block.text, { bullet: true });
     else if (block.type === "table") block.rows.forEach((row) => paragraph(pages, row, { panel: true }));
     else paragraph(pages, block.text);
   }
+  closureRegister(pages, context);
   heading(pages, "Report use");
   paragraph(pages, "This report is generated from the durable Integritas evidence ledger. It distinguishes submitted evidence, external research, unresolved checks and analyst review; it is not a substitute for legal, regulatory or specialist advice.", { panel: true });
   if (body.cursor === 0) throw new Error("report layout was not initialized");
