@@ -7,6 +7,24 @@ export const dynamic = "force-dynamic";
 
 const ADMIN_API = "https://leuixjgmlueptefintgo.supabase.co/functions/v1/integritas-admin-api";
 
+function meetsComprehensiveReportGate(content: string, snapshot: Record<string, unknown>) {
+  const text = String(content || "");
+  const sectionSignals = [
+    /master summary|executive decision summary/i,
+    /document.{0,24}(forensic|entity)|document, forensic/i,
+    /transaction.{0,24}(research|contradiction)|transaction analysis/i,
+    /evidence.{0,24}(unresolved|methodology)|closure register|source ledger/i,
+    /direct next steps|recommended order|what to do now/i,
+  ];
+  const escapedControls = (text.match(/\\\\[nrt]/g) || []).length;
+  return text.length >= 4000
+    && sectionSignals.filter((pattern) => pattern.test(text)).length >= 4
+    && escapedControls <= 3
+    && Array.isArray(snapshot.documents) && snapshot.documents.length > 0
+    && Array.isArray(snapshot.findings) && snapshot.findings.length > 0
+    && Array.isArray(snapshot.sources) && snapshot.sources.length > 0;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const store = await cookies();
@@ -30,6 +48,9 @@ export async function GET(request: Request) {
     const caseTitle = String(snapshot.case?.title || "Integritas investigation");
     if (!report?.content_markdown || report.status !== "finalized") {
       return NextResponse.json({ error: "The report must be reviewed and finalized before PDF download." }, { status: 409 });
+    }
+    if (!meetsComprehensiveReportGate(String(report.content_markdown), snapshot)) {
+      return NextResponse.json({ error: "The report did not pass the comprehensive evidence and structure gate. Re-run or continue the investigation before downloading the PDF." }, { status: 409 });
     }
     const pdf = await createReportPdf(
       caseTitle,

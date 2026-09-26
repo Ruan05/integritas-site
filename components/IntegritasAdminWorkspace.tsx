@@ -466,9 +466,9 @@ export default function IntegritasAdminWorkspace() {
         action: "create_case",
         authorized: true,
         title: caseTitle(files),
-        purpose: "Comprehensive authorized due-diligence investigation of the submitted evidence.",
-        authorizedScope: "Review all supplied documents and conduct lawful public-source verification required to test material claims, entities, relationships, contradictions and unresolved checks.",
-        intendedSubjects: "People, companies, representatives, identifiers and relationships identified in the submitted evidence.",
+        purpose: "Maximum-depth, source-grounded due-diligence investigation. Extract every material fact from every page, reconcile all documents, conduct specialist public-source research, preserve contradictions and produce a comprehensive evidence-linked report with visualisations and explicit closure gates.",
+        authorizedScope: "Review every supplied document page and attachment; normalize and hash inputs; identify entities, aliases, representatives, authority, ownership/control, banking/payment, product/title/capacity, storage/terminal, logistics/maritime, pricing/economics, trade finance, document forensics, sanctions/PEP/adverse media, digital attribution and contradictions. Use independent research lanes, bounded provider failover and critic review. Do not mark the case complete when research synthesis, source validation, independent QA or PDF assembly is degraded; retain unresolved gates and retry from durable checkpoints.",
+        intendedSubjects: "All people, companies, banks, websites, email domains, identifiers, assets, vessels, terminals, products, contracts, invoices, transactions and relationships identified in any submitted page; keep same-name subjects separate until corroborated.",
         jurisdictions: "International; determine relevant jurisdictions from the evidence.",
       });
       const caseId = String(created.caseId || "");
