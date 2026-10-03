@@ -27,7 +27,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Integritas | Legal, Compliance, Investment & Business Consulting",
+    default: "Integritas | Legal • Compliance • Investment • Business Consulting",
     template: "%s | Integritas",
   },
   description:

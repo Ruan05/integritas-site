@@ -1,6 +1,6 @@
 # Integritas website
 
-Production source for the Integritas legal, business and project-management
+Production source for the Integritas legal, compliance, investment and business
 consulting website. The application runs on [vinext](https://github.com/cloudflare/vinext)
 and uses Cloudflare D1 for consented, first-party visit summaries.
 

@@ -46,7 +46,7 @@ export default function OpenGraphImage() {
             </div>
             <div style={{ width: 110, height: 2, background: "#d4af37" }} />
             <div style={{ fontFamily: "Arial, sans-serif", fontSize: 20, letterSpacing: 4, textTransform: "uppercase", color: "#aaa49a" }}>
-              Legal · Business · Project Management Consulting
+              Legal • Compliance • Investment • Business Consulting
             </div>
           </div>
         </div>
