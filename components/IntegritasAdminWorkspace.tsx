@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as tus from "tus-js-client";
 import { integritasSupabase } from "@/lib/integritas-supabase";
+import InvestigationReport from "@/components/InvestigationReport";
 import {
   Archive,
   CheckCircle2,
@@ -250,7 +251,7 @@ export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot |
   const noInvestigableEvidence = (snapshot?.reports ?? []).some((report) =>
     /No investigable evidence identified; the case completed through deterministic intake/i.test(report.summary ?? ""),
   );
-  if (job.stage === "completed" && noInvestigableEvidence && index >= 2 && index <= 6) return "not applicable";
+  if (job.stage === "completed" && noInvestigableEvidence && index >= 2 && index <= 5) return "not applicable";
   if (job.stage === "paused") {
     const prior = (snapshot?.checkpoints ?? [])
       .filter((row) => row.case_job_id === job.id && row.attempt === job.current_attempt && row.stage !== "paused")
@@ -739,6 +740,13 @@ export default function IntegritasAdminWorkspace() {
                     <Download size={14} /> Markdown
                   </button>
                 </div>
+                <details className="mt-6 border-t border-[#D4AF37]/20 pt-5" open>
+                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-[#E4C45F]">Read complete web report</summary>
+                  <p className="mt-3 border-l-2 border-[#D4AF37]/50 bg-[#D4AF37]/[0.05] px-4 py-3 text-xs leading-5 text-[#C9C0B3]">
+                    {report.status === "finalized" ? "Finalized analyst report." : "Draft investigation report for analyst review. Unresolved verification gates are not transaction clearance."}
+                  </p>
+                  <InvestigationReport content={report.content_markdown} />
+                </details>
               </div>
             ) : null}
           </section>
