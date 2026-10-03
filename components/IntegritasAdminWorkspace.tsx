@@ -244,6 +244,13 @@ function currentSubmodule(job: JobRow, snapshot: Snapshot | null) {
 }
 
 export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot | null) {
+  // A deterministic no-subject intake intentionally bypasses substantive
+  // research, critic and synthesis. A completed artifact must not imply those
+  // investigation lanes ran merely because the job reached 100%.
+  const noInvestigableEvidence = (snapshot?.reports ?? []).some((report) =>
+    /No investigable evidence identified; the case completed through deterministic intake/i.test(report.summary ?? ""),
+  );
+  if (job.stage === "completed" && noInvestigableEvidence && index >= 2 && index <= 6) return "not applicable";
   if (job.stage === "paused") {
     const prior = (snapshot?.checkpoints ?? [])
       .filter((row) => row.case_job_id === job.id && row.attempt === job.current_attempt && row.stage !== "paused")
@@ -673,7 +680,7 @@ export default function IntegritasAdminWorkspace() {
                   const status = milestoneStatus(index, job, snapshot);
                   return (
                     <div key={milestone.stage} className={`flex items-center gap-2 border px-3 py-2 text-xs ${status === "complete" ? "border-[#849E68]/35 text-[#CFE4B8]" : status === "active" ? "border-[#D4AF37]/40 text-[#E4C45F]" : status === "blocked" ? "border-[#B96F5C]/40 text-[#D9A597]" : "border-white/8 text-[#706A63]"}`}>
-                      <span aria-hidden="true">{status === "complete" ? "✓" : status === "active" ? "•" : status === "blocked" ? "!" : "○"}</span>
+                      <span aria-hidden="true">{status === "complete" ? "✓" : status === "active" ? "•" : status === "blocked" ? "!" : status === "not applicable" ? "–" : "○"}</span>
                       <span>{milestone.label}</span>
                       <span className="ml-auto text-[9px] uppercase tracking-[0.12em]">{status}</span>
                     </div>
