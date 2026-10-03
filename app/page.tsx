@@ -18,8 +18,6 @@ const NAV_LINKS = [
   { label: "Contact", href: "#contact" },
 ];
 
-const BRAND_SERVICE_LINE = "Legal • Compliance • Investment • Business Consulting";
-
 const PRINCIPLES = [
   {
     num: "01",
@@ -78,41 +76,36 @@ const WHY_IT_MATTERS = [
 const SERVICES = [
   {
     num: "01",
-    title: "Counterparty Due Diligence",
-    body: "Evidence-led reviews of corporate identity, ownership, representatives, documents, digital channels, banking instructions and transaction claims. Findings distinguish verified facts from claims and unresolved checks.",
-  },
-  {
-    num: "02",
     title: "International Trade & Compliance",
     body: "Export controls, import and customs regulations, preferential trade arrangements, enhanced due diligence and counter-party screening across multiple jurisdictions.",
   },
   {
-    num: "03",
+    num: "02",
     title: "Global Transactions",
     body: "Structuring and implementing strategic transactions, contractual joint ventures, manufacturing and partnering agreements, licence and distribution arrangements.",
   },
   {
-    num: "04",
+    num: "03",
     title: "Foreign Direct Investment",
     body: "Optimal structures for overseas presence — joint ventures, strategic alliances, new investments — with evaluation of political, currency and regulatory risk.",
   },
   {
-    num: "05",
+    num: "04",
     title: "Contract Law",
     body: "Custom drafting, review, negotiation and management of shareholder, partnership, joint venture and consulting agreements with a preventive focus.",
   },
   {
-    num: "06",
+    num: "05",
     title: "Energy, Oil & Gas",
     body: "Upstream, midstream and downstream counsel; renewable energy; host-government instruments; LNG and infrastructure projects across the energy value chain.",
   },
   {
-    num: "07",
+    num: "06",
     title: "Trade Finance & Instruments",
     body: "Guarantees, letters of credit, negotiable instruments, documentary collections, counter-trade and receivables financing for cross-border deals.",
   },
   {
-    num: "08",
+    num: "07",
     title: "Pharmaceutical & Health Due Diligence",
     body: "Due diligence and compliance support for pharmaceutical and healthcare projects, including review of counterparties, licensing and regulatory considerations, product and supply-chain risks, and market-entry readiness across relevant jurisdictions.",
   },
@@ -121,46 +114,23 @@ const SERVICES = [
 const PROCESS_STEPS = [
   {
     num: "01",
-    title: "Scope the decision",
-    body: "Define the counterparty, transaction, jurisdictions and the decision the investigation must inform.",
+    title: "Understand",
+    body: "We take time to understand your commercial objectives and the jurisdictions involved, building a comprehensive picture of your operating environment.",
   },
   {
     num: "02",
-    title: "Examine the material",
-    body: "Review submitted documents and claims, map the entities involved and identify inconsistencies and missing proof.",
+    title: "Structure",
+    body: "We design practical frameworks that protect interests and support operations, ensuring every element aligns with your commercial goals.",
   },
   {
     num: "03",
-    title: "Verify independently",
-    body: "Check material claims against available authoritative and independent sources, recording what each source can establish.",
+    title: "Advise",
+    body: "Clear, actionable counsel on compliance, contracts, risk and regulatory engagement — delivered in plain language you can act on.",
   },
   {
     num: "04",
-    title: "Report and resolve",
-    body: "Deliver a decision summary, supporting evidence, contradictions and exact steps to close checks that remain open.",
-  },
-];
-
-const REPORT_OUTPUTS = [
-  {
-    num: "01",
-    title: "Decision summary",
-    body: "The central question, current assessment and the practical implication for the proposed engagement or transaction.",
-  },
-  {
-    num: "02",
-    title: "Evidence and sources",
-    body: "Material findings linked to their sources, with verified facts separated from submitted claims and analytical inferences.",
-  },
-  {
-    num: "03",
-    title: "Contradictions and gaps",
-    body: "Conflicting identifiers, documents or representations, plus checks that available evidence cannot resolve.",
-  },
-  {
-    num: "04",
-    title: "A route to resolution",
-    body: "Specific next steps, the independent party or issuer to approach, and the proof needed to close each material check.",
+    title: "Partner",
+    body: "Ongoing support as laws change and your international footprint evolves, ensuring you remain compliant and competitive.",
   },
 ];
 
@@ -204,8 +174,6 @@ const TEAM = [
 ];
 
 const ENQUIRY_TYPES = [
-  "Counterparty Due Diligence",
-  "Transaction or Document Review",
   "International Trade & Compliance",
   "Global Transactions",
   "Foreign Direct Investment",
@@ -503,7 +471,7 @@ function HeroSection() {
         </div>
 
         <p className="hero-cascade-1 text-[10px] sm:text-[11px] tracking-[0.3em] uppercase text-[#D4AF37]/70 mb-8">
-          {BRAND_SERVICE_LINE}
+          Legal &bull; Compliance &bull; Investment &bull; Business Consulting
         </p>
 
         <h1 className="hero-cascade-2 font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.08] tracking-tight mb-7">
@@ -730,42 +698,6 @@ function ServicesSection() {
   );
 }
 
-function ReportOutputSection() {
-  return (
-    <section id="due-diligence" className="py-24 md:py-32 border-b border-[#D4AF37]/10">
-      <div className="max-w-6xl mx-auto px-6 md:px-10">
-        <div className="grid lg:grid-cols-[0.85fr_1.15fr] gap-12 lg:gap-20 items-start">
-          <div className="lg:sticky lg:top-28">
-            <p className="reveal text-[11px] tracking-[0.28em] uppercase text-[#D4AF37] mb-5">
-              The Investigation Output
-            </p>
-            <h2 className="reveal reveal-delay-1 font-serif text-3xl md:text-5xl font-medium leading-tight mb-6">
-              A decision you can trace back to evidence.
-            </h2>
-            <p className="reveal reveal-delay-2 text-[#A9A39A] font-light leading-relaxed max-w-xl mb-8">
-              Our due diligence reports are structured around the decision at hand. They show what has been established, what remains a claim and what needs independent confirmation before it can be relied upon.
-            </p>
-            <a href="#contact" className="reveal reveal-delay-2 editorial-link">
-              Discuss an investigation <span aria-hidden="true">↗</span>
-            </a>
-          </div>
-          <ol className="border-t border-[#D4AF37]/20">
-            {REPORT_OUTPUTS.map((item, index) => (
-              <li key={item.num} className={`reveal ${index % 2 ? "reveal-delay-1" : ""} grid grid-cols-[42px_1fr] gap-4 py-6 md:py-8 border-b border-[#D4AF37]/20`}>
-                <span className="font-serif text-[#D4AF37]/60 text-lg" aria-hidden="true">{item.num}</span>
-                <div>
-                  <h3 className="font-serif text-xl md:text-2xl text-[#F7F5F0] mb-2">{item.title}</h3>
-                  <p className="text-[#A9A39A] text-sm font-light leading-relaxed max-w-lg">{item.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ProjectManagementSection() {
   const workstreams = [
     "Cross-border engagement coordination",
@@ -859,11 +791,8 @@ function ProcessSection() {
             How We Work
           </p>
           <h2 className="reveal reveal-delay-1 font-serif text-3xl md:text-4xl font-medium">
-            How we investigate
+            A considered process
           </h2>
-          <p className="reveal reveal-delay-2 text-[#8A857C] font-light max-w-xl mx-auto text-sm leading-relaxed mt-4">
-            A clear path from the question you need answered to findings you can act on. Checks requiring direct confirmation remain explicitly open until that confirmation is obtained.
-          </p>
         </div>
         <div className="grid md:grid-cols-4 gap-8">
           {PROCESS_STEPS.map((step, i) => (
@@ -951,7 +880,7 @@ function TeamCard({
                   <Image src="/icononly_transparent.png" alt="Integritas" width={40} height={40} className="h-7 w-auto opacity-80" />
                 </div>
                 <p className="font-serif text-sm sm:text-base tracking-[0.15em] uppercase text-[#D4AF37]">Integritas</p>
-                <p className="text-[7px] sm:text-[8px] tracking-[0.12em] uppercase text-[#8A857C] mt-0.5">{BRAND_SERVICE_LINE}</p>
+                <p className="text-[7px] sm:text-[8px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &middot; Business &middot; Project Management Consulting</p>
               </div>
               <div className="gold-line-solid"></div>
               {/* Photo, name, role, bio */}
@@ -992,7 +921,7 @@ function TeamCard({
                   <Image src="/icononly_transparent.png" alt="Integritas" width={28} height={28} className="h-5 w-auto opacity-70" />
                 </div>
                 <p className="bcard-gold-text font-serif text-[11px] tracking-[0.18em] uppercase">Integritas</p>
-                <p className="text-[6px] tracking-[0.12em] uppercase text-[#8A857C] mt-0.5">{BRAND_SERVICE_LINE}</p>
+                <p className="text-[6px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &middot; Business &middot; Project Management Consulting</p>
                 <div className="flex items-center justify-center gap-1.5 mt-0.5">
                   <span className="block w-4 h-px bg-[#D4AF37]/25"></span>
                   <span className="text-[5px] tracking-[0.1em] uppercase bcard-gold-text">Integrity &middot; Governance &middot; Excellence</span>
@@ -1173,7 +1102,7 @@ function ContactSection() {
                 Integritas
               </p>
               <p className="text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">
-                {BRAND_SERVICE_LINE}
+                Legal &middot; Business &middot; Project Management Consulting
               </p>
               <div className="flex items-center justify-center gap-2 mt-2.5">
                 <span className="block w-8 h-px bg-[#D4AF37]/40" />
@@ -1284,7 +1213,7 @@ function ContactSection() {
                   <textarea
                     id="message"
                     name="message"
-                    placeholder="Briefly describe the decision, counterparties or project, jurisdictions and timing."
+                    placeholder="Briefly describe the matter, jurisdictions and timing."
                     required
                     rows={5}
                     value={formData.message}
@@ -1521,7 +1450,6 @@ export default function HomePage() {
         <WhyIntegritasSection />
         <WhyMatterSection />
         <ServicesSection />
-        <ReportOutputSection />
         <ProjectManagementSection />
         <SectorsSection />
         <ProcessSection />
