@@ -41,6 +41,7 @@ const SECTORS = [
   "Energy, oil & gas",
   "Mining & resources",
   "ICT & infrastructure",
+  "Pharmaceuticals & healthcare",
   "Cross-border investment",
   "Commercial partnerships",
 ];
@@ -103,6 +104,11 @@ const SERVICES = [
     title: "Trade Finance & Instruments",
     body: "Guarantees, letters of credit, negotiable instruments, documentary collections, counter-trade and receivables financing for cross-border deals.",
   },
+  {
+    num: "07",
+    title: "Pharmaceutical & Health Due Diligence",
+    body: "Due diligence and compliance support for pharmaceutical and healthcare projects, including review of counterparties, licensing and regulatory considerations, product and supply-chain risks, and market-entry readiness across relevant jurisdictions.",
+  },
 ];
 
 const PROCESS_STEPS = [
@@ -153,8 +159,8 @@ const TEAM = [
   },
   {
     name: "Ruan Scheepers",
-    role: "Project Manager",
-    bio: "Ruan coordinates the firm's cross-border engagements, managing complex multi-jurisdictional matters from inception to completion. His attention to detail and process discipline ensure seamless delivery across all practice areas.",
+    role: "Project Manager | Pharma & Health Due Diligence",
+    bio: "Ruan coordinates the firm's cross-border engagements and applies domain expertise in pharmaceutical and healthcare due diligence and compliance. He manages reviews of counterparties, project readiness and execution risks, bringing commercial, regulatory and cross-border workstreams together from initial assessment through to clear, actionable findings.",
     photo: "/team/ruan-v4.webp",
     email: "ruan@integritass.com",
     phones: [
@@ -172,6 +178,8 @@ const ENQUIRY_TYPES = [
   "Energy, Oil & Gas",
   "Trade Finance",
   "Project Management",
+  "Pharmaceutical & Health Due Diligence",
+  "Investment & Project Facilitation",
   "General Enquiry",
 ];
 
@@ -703,7 +711,7 @@ function ProjectManagementSection() {
               From sound advice to controlled execution.
             </h2>
             <p className="reveal reveal-delay-2 text-[#A9A39A] font-light leading-relaxed max-w-xl mb-8">
-              Complex cross-border matters depend on more than a legal answer. Integritas coordinates workstreams, decisions and stakeholders so that commercial and regulatory requirements move forward together.
+              Complex cross-border matters depend on more than a legal answer. Integritas coordinates workstreams, decisions and stakeholders so that commercial and regulatory requirements move forward together. For investment opportunities, we help investors and project sponsors clarify requirements, coordinate due diligence, align stakeholders and, where appropriate, facilitate introductions and transaction planning. An introduction is not a funding commitment or investment endorsement.
             </p>
             <a href="#contact" className="reveal reveal-delay-2 editorial-link">
               Discuss a project <span aria-hidden="true">↗</span>
