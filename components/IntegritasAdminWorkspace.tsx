@@ -89,7 +89,7 @@ const MILESTONES: Milestone[] = [
   { stage: "commit", label: "Private PDF/artifact commit" },
 ];
 
-const TERMINAL = new Set(["completed", "incomplete", "failed", "cancelled", "research_limit_reached"]);
+const TERMINAL = new Set(["completed", "incomplete", "failed", "cancelled", "paused", "research_limit_reached"]);
 
 const STAGE_COPY: Record<string, { label: string; note: string }> = {
   queued: { label: "Preparing your investigation", note: "Securing the case and preparing the evidence." },
@@ -106,6 +106,7 @@ const STAGE_COPY: Record<string, { label: string; note: string }> = {
   incomplete: { label: "Report needs review", note: "The investigation finished with unresolved items clearly marked." },
   failed: { label: "Investigation needs attention", note: "The run stopped before a final report could be produced." },
   cancelled: { label: "Investigation cancelled", note: "The run was cancelled." },
+  paused: { label: "Investigation paused", note: "The worker stopped at a durable checkpoint. Continue to resume this investigation." },
   research_limit_reached: { label: "Research limit reached", note: "The report records what was completed and what remains open." },
 };
 
@@ -283,7 +284,7 @@ export default function IntegritasAdminWorkspace() {
   const canContinue = Boolean(
     !reportFinalized
       && job?.id
-      && ["failed", "incomplete", "cancelled", "research_limit_reached"].includes(job.stage)
+      && ["failed", "incomplete", "cancelled", "paused", "research_limit_reached"].includes(job.stage)
       && !committedPdfReady(job, snapshot),
   );
   const canStop = Boolean(running && job?.id);
@@ -308,7 +309,7 @@ export default function IntegritasAdminWorkspace() {
     setSubmitting(true);
     setNotice("Continuing the investigation from its last safe checkpoint…");
     try {
-      await crmRequest({ action: "retry_case_investigation", case_job_id: job.id });
+      await crmRequest({ action: job.stage === "paused" ? "resume_case_investigation" : "retry_case_investigation", case_job_id: job.id });
       await refreshCases(activeCaseId);
       await loadCase(activeCaseId);
       setNotice("Investigation continued. You can leave this page and return later.");
@@ -334,7 +335,7 @@ export default function IntegritasAdminWorkspace() {
       await crmRequest({ action: pause ? "pause_case_investigation" : "cancel_case_investigation", case_job_id: job.id });
       await refreshCases(activeCaseId);
       await loadCase(activeCaseId);
-      setNotice(pause ? "Investigation paused safely. Use Continue investigation when you are ready." : "Cancellation requested. The worker will stop at its next durable checkpoint.");
+      setNotice(pause ? "Pause requested. The worker will stop at its next durable checkpoint." : "Cancellation requested. The worker will stop at its next durable checkpoint.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     } finally {
@@ -636,7 +637,7 @@ export default function IntegritasAdminWorkspace() {
                 <h2 className="mt-2 font-serif text-2xl">{stage.label}</h2>
                 <p className="mt-2 text-sm leading-6 text-[#8F8981]">{stage.note}</p>
               </div>
-              {TERMINAL.has(job.stage) ? <CheckCircle2 className="mt-1 shrink-0 text-[#D4AF37]" size={23} /> : null}
+              {job.stage === "completed" ? <CheckCircle2 className="mt-1 shrink-0 text-[#D4AF37]" size={23} /> : null}
             </div>
             <div className="mt-5 h-2 overflow-hidden bg-white/7" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
               <div className="h-full bg-[#D4AF37] transition-[width] duration-700" style={{ width: `${Math.max(2, Math.min(100, progress))}%` }} />
@@ -650,7 +651,7 @@ export default function IntegritasAdminWorkspace() {
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-[#BDA76F]">Investigation milestones</p>
                 <p className="text-[10px] uppercase tracking-[0.14em] text-[#BDA76F]">
-                  {TERMINAL.has(job.stage) ? `${progress}% final progress` : `${progress}% live progress`}
+                  {job.stage === "paused" ? `${progress}% paused progress` : TERMINAL.has(job.stage) ? `${progress}% stopped progress` : `${progress}% live progress`}
                 </p>
               </div>
               <div className="mt-3 border border-[#D4AF37]/20 bg-[#D4AF37]/[0.04] px-3 py-3 text-xs leading-5 text-[#DDD4C6]">
