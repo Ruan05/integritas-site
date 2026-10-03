@@ -11,6 +11,8 @@ const CONTROL_ACTIONS = new Set([
   "command_status",
   "start_case_investigation",
   "retry_case_investigation",
+  "pause_case_investigation",
+  "resume_case_investigation",
   "cancel_case_investigation",
 ]);
 

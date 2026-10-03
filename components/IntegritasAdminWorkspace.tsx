@@ -331,7 +331,7 @@ export default function IntegritasAdminWorkspace() {
     setSubmitting(true);
     setNotice(pause ? "Pausing safely at the next durable checkpoint…" : "Cancelling safely at the next durable checkpoint…");
     try {
-      await crmRequest({ action: "cancel_case_investigation", case_job_id: job.id });
+      await crmRequest({ action: pause ? "pause_case_investigation" : "cancel_case_investigation", case_job_id: job.id });
       await refreshCases(activeCaseId);
       await loadCase(activeCaseId);
       setNotice(pause ? "Investigation paused safely. Use Continue investigation when you are ready." : "Cancellation requested. The worker will stop at its next durable checkpoint.");
