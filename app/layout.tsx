@@ -27,11 +27,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Integritas | Legal, Business & Project Management Consulting",
+    default: "Integritas | Legal, Compliance, Investment & Business Consulting",
     template: "%s | Integritas",
   },
   description:
-    "Cross-border legal, commercial and project-management counsel for international trade, transactions, contracts, investment and regulated industries.",
+    "Legal, compliance, investment and business consulting across borders. Evidence-led counterparty due diligence, transactions and pharmaceutical and healthcare advisory.",
   applicationName: "Integritas",
   authors: [{ name: "Integritas" }],
   creator: "Integritas",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Integritas | Integrity in every cross-border decision",
     description:
-      "Legal, commercial and project-management counsel for organisations operating across borders.",
+      "Cross-border legal, compliance, investment and business consulting, with evidence-led counterparty due diligence.",
     type: "website",
     locale: "en_ZA",
     siteName: "Integritas",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Integritas | Integrity in every cross-border decision",
-    description: "Legal, commercial and project-management counsel for organisations operating across borders.",
+    description: "Cross-border legal, compliance, investment and business consulting, with evidence-led counterparty due diligence.",
     images: ["/opengraph-image"],
   },
   robots: {
@@ -68,7 +68,7 @@ const structuredData = {
   "@context": "https://schema.org",
   "@type": "ProfessionalService",
   name: "Integritas",
-  description: "Cross-border legal, commercial and project-management consulting.",
+  description: "Cross-border legal, compliance, investment and business consulting with counterparty due diligence.",
   url: siteUrl,
   logo: `${siteUrl}/icononly_transparent.png`,
   email: "info@integritass.com",
@@ -83,11 +83,14 @@ const structuredData = {
   areaServed: "Worldwide",
   knowsAbout: [
     "International trade compliance",
+    "Counterparty due diligence",
+    "Transaction and document review",
     "Cross-border transactions",
     "Contract law",
     "Energy, oil and gas",
     "Trade finance",
     "Foreign direct investment",
+    "Pharmaceutical and healthcare due diligence",
     "Project management",
   ],
 };
