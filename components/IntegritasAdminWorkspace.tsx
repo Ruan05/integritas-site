@@ -244,6 +244,15 @@ function currentSubmodule(job: JobRow, snapshot: Snapshot | null) {
 }
 
 export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot | null) {
+  if (job.stage === "paused") {
+    const prior = (snapshot?.checkpoints ?? [])
+      .filter((row) => row.case_job_id === job.id && row.attempt === job.current_attempt && row.stage !== "paused")
+      .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))[0];
+    if (!prior) return "waiting";
+    const previous = currentSubmodule({ ...job, stage: prior.stage ?? job.stage, latest_checkpoint: prior }, { checkpoints: [prior] });
+    const previousIndex = MILESTONES.findIndex((item) => item.label === previous.label);
+    return previousIndex >= 0 && index < previousIndex ? "complete" : "waiting";
+  }
   const current = currentSubmodule(job, snapshot);
   const active = MILESTONES.findIndex((item) => item.label === current.label);
   if (TERMINAL.has(job.stage)) {
