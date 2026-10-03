@@ -471,7 +471,7 @@ function HeroSection() {
         </div>
 
         <p className="hero-cascade-1 text-[10px] sm:text-[11px] tracking-[0.3em] uppercase text-[#D4AF37]/70 mb-8">
-          Legal &middot; Business Consulting
+          Legal &bull; Compliance &bull; Investment &bull; Business Consulting
         </p>
 
         <h1 className="hero-cascade-2 font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.08] tracking-tight mb-7">
