@@ -300,9 +300,11 @@ export default function IntegritasAdminWorkspace() {
   const submodule = job ? currentSubmodule(job, snapshot) : null;
   const reportIncomplete = Boolean(report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
   const reportFinalized = report?.status === "finalized" && !reportIncomplete;
-  const stage = reportFinalized
-    ? STAGE_COPY.completed
-    : STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
+  const stage = reportIncomplete
+    ? STAGE_COPY.incomplete
+    : reportFinalized
+      ? STAGE_COPY.completed
+      : STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
   const running = Boolean(job && !TERMINAL.has(job.stage));
   const ready = isInvestigationRuntimeReady(runtime, runtimeCheckedAt);
   const canContinue = Boolean(
@@ -778,16 +780,22 @@ export default function IntegritasAdminWorkspace() {
 
           {cases.length ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              {cases.map((item) => (
+              {cases.map((item) => {
+                const held = Boolean(item.latest_report
+                  && reportNeedsHold(item.latest_report.summary || "", item.latest_report.content_markdown || ""));
+                const archiveStatus = held
+                  ? "HOLD — INCOMPLETE"
+                  : item.latest_report?.status || item.latest_job?.stage || item.status || "In progress";
+                return (
                 <div
                   key={item.id}
                   className={`relative border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
                 >
                   <button type="button" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="block w-full pr-10 text-left">
-                    <p className="truncate text-sm text-[#DDD4C6]">{item.title}</p>
+                    <p className={`truncate text-sm ${held ? "text-[#D9A597]" : "text-[#DDD4C6]"}`}>{item.title}</p>
                     <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
                       <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
-                      <span>{item.latest_report?.status || item.latest_job?.stage || item.status || "In progress"}</span>
+                      <span className={held ? "text-[#D9A597]" : ""}>{archiveStatus}</span>
                     </div>
                     {item.latest_report?.summary ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#8F8981]">{item.latest_report.summary}</p> : null}
                     {!item.latest_report?.summary && item.latest_job?.stage ? <p className="mt-3 text-xs leading-5 text-[#8F8981]">{item.latest_job.stage.replaceAll("_", " ")} · {item.latest_job.progress ?? 0}%</p> : null}
@@ -805,7 +813,8 @@ export default function IntegritasAdminWorkspace() {
                     ) : null}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="border border-white/8 bg-[#0D0D0D] p-6 text-sm text-[#7F7871]">
