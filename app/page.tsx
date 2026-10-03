@@ -1072,7 +1072,6 @@ function ContactSection() {
       } else if (data.mailtoLink) {
         setDraftLink(data.mailtoLink);
         setStatus("draft");
-        window.location.href = data.mailtoLink;
       } else {
         setErrorMessage("Email delivery is not configured. Please email info@integritass.com directly.");
         setStatus("error");
@@ -1236,7 +1235,7 @@ function ContactSection() {
                   <span>I agree that Integritas may use these details to respond to my enquiry, as explained in the <a href="/privacy" className="text-[#D4AF37] underline underline-offset-4 hover:text-[#E5C07B]">Privacy Notice</a>.</span>
                 </label>
                 <p id="contact-form-note" className="text-[11px] text-[#8A857C] leading-relaxed">
-                  Fields marked * are required. Submitting may open your email app; if it does, review the draft and press Send there to complete your enquiry.
+                  Fields marked * are required. If direct delivery is unavailable, we will prepare an email draft for you to open, review and send.
                 </p>
                 <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-4">
                   <button
@@ -1264,7 +1263,7 @@ function ContactSection() {
                   )}
                   {status === "draft" && (
                     <span className="text-[#D4AF37] animate-fade-in">
-                      Your enquiry has not been sent. Review the draft in your email app and press Send. {draftLink && (
+                      Your enquiry has not been sent. Open the draft, review it and press Send in your email app. {draftLink && (
                         <a href={draftLink} className="underline underline-offset-4 hover:text-[#E5C07B]">Open email draft</a>
                       )}
                     </span>
