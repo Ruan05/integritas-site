@@ -231,17 +231,22 @@ function currentSubmodule(job: JobRow, snapshot: Snapshot | null) {
   const stage = phase.toLowerCase().replaceAll(/[^a-z0-9]+/g, "_");
   const lane = Number(metadata.lane_index ?? metadata.lane_number ?? metadata.current_lane);
   const total = Number(metadata.lane_total ?? metadata.total_lanes);
-  const detail = String(metadata.detail ?? metadata.phase_detail ?? metadata.current_detail ?? "").trim();
+  const task = metadata.current_task && typeof metadata.current_task === "object" && !Array.isArray(metadata.current_task)
+    ? metadata.current_task as Record<string, unknown> : null;
+  const detail = [task?.label, task?.detail, metadata.message ?? metadata.detail ?? metadata.phase_detail ?? metadata.current_detail]
+    .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+    .join(" · ");
+  const route = [task?.provider, task?.model].filter((value): value is string => typeof value === "string" && Boolean(value.trim())).join(" / ");
   const label = /ocr|extract/.test(stage) ? MILESTONES[0].label
     : /route|plan/.test(stage) ? MILESTONES[1].label
-    : /entity|normaliz|mapping|analyz/.test(stage) ? MILESTONES[2].label
+    : /entity|normaliz|mapping|analys|analyz/.test(stage) ? MILESTONES[2].label
     : /research|lane|verif|cross_check/.test(stage) ? MILESTONES[3].label
     : /critic|independent|revision/.test(stage) ? MILESTONES[4].label
     : /dossier|assembl|draft|synthes/.test(stage) ? MILESTONES[5].label
     : /qa|quality/.test(stage) ? MILESTONES[6].label
     : /pdf|artifact|commit|publish|complet/.test(stage) ? MILESTONES[7].label
     : phase.replaceAll("_", " ");
-  return { label, detail, lane: Number.isInteger(lane) && lane > 0 && Number.isInteger(total) && total > 0 ? `Lane ${lane}/${total}` : "" };
+  return { label, detail, route, lane: Number.isInteger(lane) && lane > 0 && Number.isInteger(total) && total > 0 ? `Lane ${lane}/${total}` : "" };
 }
 
 export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot | null) {
@@ -675,6 +680,7 @@ export default function IntegritasAdminWorkspace() {
                 <p className="text-[10px] uppercase tracking-[0.16em] text-[#BDA76F]">Current submodule</p>
                 <p className="mt-1">{submodule?.label}{submodule?.lane ? ` · ${submodule.lane}` : ""}</p>
                 {submodule?.detail ? <p className="mt-1 break-words text-[#9D968F]">{submodule.detail}</p> : null}
+                {submodule?.route ? <p className="mt-1 break-words text-[#BDA76F]">Active route: {submodule.route}</p> : null}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {MILESTONES.map((milestone, index) => {

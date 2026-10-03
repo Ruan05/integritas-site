@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 // The dossier is investigation data. Render a small, escaped Markdown subset
 // as React nodes rather than allowing report content to become executable HTML.
 function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(https:\/\/[^)\s]+\))/g).map((part, index) => {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https:\/\/[^)\s]+\))/g).map((part, index) => {
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={index} className="font-semibold text-[#F0E5CE]">{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={index} className="rounded bg-white/8 px-1 py-0.5 font-mono text-xs text-[#E4C45F]">{part.slice(1, -1)}</code>;
     const link = /^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/.exec(part);
     if (link) return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer" className="break-all text-[#E4C45F] underline underline-offset-2">{link[1]}</a>;
     return part;
