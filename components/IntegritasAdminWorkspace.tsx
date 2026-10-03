@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as tus from "tus-js-client";
 import { integritasSupabase } from "@/lib/integritas-supabase";
 import InvestigationReport from "@/components/InvestigationReport";
+import { reportNeedsHold } from "@/lib/report-disposition";
 import {
   Archive,
   CheckCircle2,
@@ -297,7 +298,8 @@ export default function IntegritasAdminWorkspace() {
   const report = newestReport(snapshot);
   const progress = job?.progress ?? 0;
   const submodule = job ? currentSubmodule(job, snapshot) : null;
-  const reportFinalized = report?.status === "finalized";
+  const reportIncomplete = Boolean(report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
+  const reportFinalized = report?.status === "finalized" && !reportIncomplete;
   const stage = reportFinalized
     ? STAGE_COPY.completed
     : STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
@@ -720,19 +722,20 @@ export default function IntegritasAdminWorkspace() {
             {report?.content_markdown ? (
               <div className="mt-6 border-t border-white/8 pt-5">
                 <p className="text-sm leading-6 text-[#C9C0B3]">{report.summary || "Your report is ready and has been saved to the archive."}</p>
-                <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[#827A71]">Status: {report.status}</p>
+                <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[#827A71]">Status: {reportIncomplete ? "HOLD — INCOMPLETE" : report.status}</p>
+                {reportIncomplete ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">The investigation disposition is incomplete. Keep this report on hold until its open verification gates are resolved; PDF finalization is disabled.</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {report.status === "draft" ? (
                     <button type="button" onClick={() => void runReportAction("review_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
                       Mark reviewed
                     </button>
                   ) : null}
-                  {report.status === "reviewed" ? (
+                  {report.status === "reviewed" && !reportIncomplete ? (
                     <button type="button" onClick={() => void runReportAction("finalize_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
                       Finalize report
                     </button>
                   ) : null}
-                  {report.status === "finalized" ? (
+                  {report.status === "finalized" && !reportIncomplete ? (
                     <>
                       <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
                         <FileText size={14} /> Open PDF
@@ -749,7 +752,7 @@ export default function IntegritasAdminWorkspace() {
                 <details className="mt-6 border-t border-[#D4AF37]/20 pt-5" open>
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-[#E4C45F]">Read complete web report</summary>
                   <p className="mt-3 border-l-2 border-[#D4AF37]/50 bg-[#D4AF37]/[0.05] px-4 py-3 text-xs leading-5 text-[#C9C0B3]">
-                    {report.status === "finalized" ? "Finalized analyst report." : "Draft investigation report for analyst review. Unresolved verification gates are not transaction clearance."}
+                    {reportFinalized ? "Finalized analyst report." : "Draft investigation report for analyst review. Unresolved verification gates are not transaction clearance."}
                   </p>
                   <InvestigationReport content={report.content_markdown} />
                 </details>

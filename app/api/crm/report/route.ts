@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createReportPdf } from "@/lib/report-pdf";
 import { crmSessionCookie, isValidCrmSession } from "@/lib/crm-auth";
+import { reportNeedsHold } from "@/lib/report-disposition";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,9 @@ export async function GET(request: Request) {
     const caseTitle = String(snapshot.case?.title || "Integritas investigation");
     if (!report?.content_markdown || report.status !== "finalized") {
       return NextResponse.json({ error: "The report must be reviewed and finalized before PDF download." }, { status: 409 });
+    }
+    if (reportNeedsHold(String(report.summary || ""), String(report.content_markdown))) {
+      return NextResponse.json({ error: "This investigation has an incomplete or hold disposition. Its PDF cannot be presented as a finalized report." }, { status: 409 });
     }
     if (!meetsComprehensiveReportGate(String(report.content_markdown), snapshot)) {
       return NextResponse.json({ error: "The report did not pass the comprehensive evidence and structure gate. Re-run or continue the investigation before downloading the PDF." }, { status: 409 });
