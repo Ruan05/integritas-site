@@ -138,6 +138,7 @@ const TEAM = [
   {
     name: "Johan Potgieter",
     role: "Group Chairman",
+    shortBio: "Johan brings extensive international experience in investment facilitation, strategic partnerships and project commercialization across energy, mining, ICT and agriculture.",
     bio: "Seasoned business development, project commercialization, and legal professional with extensive international experience across the agriculture, ICT, mining, energy, oil, and gas sectors. Formerly associated with South Africa’s Department of Justice, Parliament, CSIR, the UNDP, and a co-founder of a major internet company listed on both the JSE and Euronext Amsterdam. Recognized for expertise in investment facilitation, strategic partnerships, project commercialization, and cross-border project development, supported by a strong international network of investors, industry leaders, and government stakeholders.",
     photo: "/team/johan-v6.webp",
     email: "johan@integritass.com",
@@ -149,6 +150,7 @@ const TEAM = [
   {
     name: "Anna-Mart Potgieter",
     role: "CEO, Advocate Legal Practitioner",
+    shortBio: "Anna-Mart advises on international trade, cross-border transactions and multi-jurisdictional compliance as an admitted Advocate Legal Practitioner.",
     bio: "An admitted Advocate Legal Practitioner of the High Courts of South Africa with over five years' experience in transnational business law. She provides strategic counsel on international trade regulations, cross-border transactions, and multi-jurisdictional compliance, combining rigorous legal research with skilled negotiation and client advocacy to deliver result-driven outcomes.",
     photo: "/team/anna-mart-v4.webp",
     email: "anna-mart@integritass.com",
@@ -159,7 +161,8 @@ const TEAM = [
   },
   {
     name: "Ruan Scheepers",
-    role: "Project Manager | Pharma & Health Due Diligence",
+    role: "Project Manager · Pharma & Health",
+    shortBio: "Ruan coordinates cross-border project delivery, with domain expertise in pharmaceutical and healthcare due diligence and compliance.",
     bio: "Ruan coordinates the firm's cross-border engagements and applies domain expertise in pharmaceutical and healthcare due diligence and compliance. He manages reviews of counterparties, project readiness and execution risks, bringing commercial, regulatory and cross-border workstreams together from initial assessment through to clear, actionable findings.",
     photo: "/team/ruan-v4.webp",
     email: "ruan@integritass.com",
@@ -630,18 +633,20 @@ function GlistenCard({
   title,
   body,
   delay,
+  featured = false,
 }: {
   num: string;
   title: string;
   body: string;
   delay: string;
+  featured?: boolean;
 }) {
   const { ref, handleMouseMove } = useGlisten();
   return (
     <div
       ref={ref}
       onMouseMove={handleMouseMove}
-      className={`service-card gold-glisten-interactive reveal ${delay} p-7 bg-[#0A0A0A]/50`}
+      className={`service-card gold-glisten-interactive reveal ${delay} p-7 bg-[#0A0A0A]/50 ${featured ? "lg:col-span-3 lg:grid lg:grid-cols-[64px_300px_1fr] lg:items-center lg:gap-8" : ""}`}
     >
       <div className="glisten-beam" />
       <p className="text-[#D4AF37] text-[10px] tracking-[0.15em] uppercase mb-3">
@@ -677,6 +682,7 @@ function ServicesSection() {
               num={s.num}
               title={s.title}
               body={s.body}
+              featured={i === SERVICES.length - 1 && SERVICES.length % 3 === 1}
               delay={
                 i % 3 === 1
                   ? "reveal-delay-1"
@@ -710,9 +716,24 @@ function ProjectManagementSection() {
             <h2 className="reveal reveal-delay-1 font-serif text-3xl md:text-5xl leading-tight mb-6">
               From sound advice to controlled execution.
             </h2>
-            <p className="reveal reveal-delay-2 text-[#A9A39A] font-light leading-relaxed max-w-xl mb-8">
-              Complex cross-border matters depend on more than a legal answer. Integritas coordinates workstreams, decisions and stakeholders so that commercial and regulatory requirements move forward together. For investment opportunities, we help investors and project sponsors clarify requirements, coordinate due diligence, align stakeholders and, where appropriate, facilitate introductions and transaction planning. An introduction is not a funding commitment or investment endorsement.
+            <p className="reveal reveal-delay-2 text-[#A9A39A] font-light leading-relaxed max-w-xl mb-6">
+              Complex cross-border matters depend on more than a legal answer. Integritas coordinates workstreams, decisions and stakeholders so commercial and regulatory requirements move forward together.
             </p>
+            <div className="reveal reveal-delay-2 border-l border-[#D4AF37]/40 pl-5 max-w-xl mb-8">
+              <h3 className="font-serif text-xl text-[#E7E2D8] mb-2">Investment &amp; project facilitation</h3>
+              <p className="text-[#A9A39A] text-sm font-light leading-relaxed mb-4">
+                We help investors and project sponsors establish a credible basis for engagement.
+              </p>
+              <ol className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm text-[#E7E2D8]" aria-label="How we connect investors and projects">
+                <li><span className="text-[#D4AF37] mr-2">01</span>Assess project fit</li>
+                <li><span className="text-[#D4AF37] mr-2">02</span>Prepare due diligence</li>
+                <li><span className="text-[#D4AF37] mr-2">03</span>Introduce parties</li>
+                <li><span className="text-[#D4AF37] mr-2">04</span>Coordinate next steps</li>
+              </ol>
+              <p className="text-[#8A857C] text-xs leading-relaxed mt-4">
+                Introductions are subject to fit and do not guarantee funding or investment endorsement.
+              </p>
+            </div>
             <a href="#contact" className="reveal reveal-delay-2 editorial-link">
               Discuss a project <span aria-hidden="true">↗</span>
             </a>
@@ -843,13 +864,15 @@ function TeamCard({
   delay: string;
 }) {
   const [flipped, setFlipped] = useState(false);
+  const bioDialogRef = useRef<HTMLDialogElement>(null);
+  const dialogTitleId = `bio-${member.name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
   return (
     <div className={`flip-reveal ${delay}`}>
       <div className={`flip-card${flipped ? " flipped" : ""}`}>
         <div className="flip-card-inner">
           {/* ─── FRONT FACE — Bio side ─── */}
-          <div className="flip-card-front">
+          <div className="flip-card-front" aria-hidden={flipped} inert={flipped}>
             <div style={{ position: 'relative', zIndex: 1 }} className="h-full flex flex-col">
               {/* Brand header */}
               <div className="flex-shrink-0 pt-5 pb-2 px-5 text-center">
@@ -866,13 +889,21 @@ function TeamCard({
                   <Image src={member.photo} alt={member.name} width={240} height={240} className="" priority unoptimized />
                 </div>
                 <h3 className="font-serif text-lg sm:text-xl tracking-[0.12em] uppercase text-[#D4AF37] mb-0.5 flex-shrink-0">{member.name}</h3>
-                <p className="text-[9px] sm:text-[10px] tracking-[0.25em] uppercase text-[#8A857C] mb-1.5 flex-shrink-0">{member.role}</p>
+                <p className="text-[11px] sm:text-xs tracking-[0.12em] uppercase text-[#B8B2A8] mb-2 flex-shrink-0">{member.role}</p>
                 <div className="diamond-separator max-w-[50px] mx-auto mb-2 flex-shrink-0"><span className="diamond"></span></div>
-                <p className={`text-[#8A857C] font-light flex-1 min-h-0 px-1 ${member.name === "Johan Potgieter" ? "text-[9px] sm:text-[9.5px] leading-[1.35] overflow-hidden" : "text-[11px] sm:text-[12px] leading-relaxed overflow-y-auto"}`} style={member.name === "Johan Potgieter" ? undefined : { WebkitOverflowScrolling: 'touch' }}>{member.bio}</p>
+                <p className="text-[#B8B2A8] text-[13px] sm:text-sm font-light leading-relaxed px-1">{member.shortBio}</p>
               </div>
-              {/* Flip button */}
-              <div className="flex-shrink-0 pt-2 pb-4 flex justify-center">
+              <div className="flex-shrink-0 pt-2 pb-4 flex justify-center gap-2 flex-wrap px-3">
                 <button
+                  type="button"
+                  onClick={() => bioDialogRef.current?.showModal()}
+                  className="flip-btn"
+                  aria-haspopup="dialog"
+                >
+                  Read full bio
+                </button>
+                <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setFlipped(true); }}
                   className="flip-btn"
                 >
@@ -882,7 +913,7 @@ function TeamCard({
             </div>
           </div>
           {/* ─── BACK FACE — Business card side ─── */}
-          <div className="flip-card-back">
+          <div className="flip-card-back" aria-hidden={!flipped} inert={!flipped}>
             <div style={{ position: 'relative', zIndex: 1 }} className="h-full flex flex-col">
               {/* Brand header */}
               <div className="flex-shrink-0 pt-3 pb-1.5 px-5 text-center">
@@ -936,6 +967,7 @@ function TeamCard({
               {/* Flip button */}
               <div className="flex-shrink-0 pt-1 pb-3.5 flex justify-center">
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setFlipped(false); }}
                   className="flip-btn"
                 >
@@ -946,6 +978,17 @@ function TeamCard({
           </div>
         </div>
       </div>
+      <dialog ref={bioDialogRef} className="team-bio-dialog" aria-labelledby={dialogTitleId}>
+        <div className="flex items-start justify-between gap-6 mb-5">
+          <div>
+            <p className="text-[11px] tracking-[0.2em] uppercase text-[#D4AF37] mb-2">Our People</p>
+            <h2 id={dialogTitleId} className="font-serif text-2xl text-[#F7F5F0]">{member.name}</h2>
+            <p className="text-sm text-[#B8B2A8] mt-1">{member.role}</p>
+          </div>
+          <button type="button" onClick={() => bioDialogRef.current?.close()} className="text-[#D4AF37] text-sm underline underline-offset-4 p-2 -m-2">Close</button>
+        </div>
+        <p className="text-[#D5D0C7] text-base leading-relaxed">{member.bio}</p>
+      </dialog>
     </div>
   );
 }
@@ -992,6 +1035,7 @@ function ContactSection() {
   });
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "draft" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [draftLink, setDraftLink] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
@@ -1003,6 +1047,7 @@ function ContactSection() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     if (status !== "idle" && status !== "sending") setStatus("idle");
     setErrorMessage("");
+    setDraftLink(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1021,11 +1066,13 @@ function ContactSection() {
         setStatus("error");
       } else if (data.mode === "sent") {
         setStatus("sent");
+        setDraftLink(null);
         setFormData({ name: "", email: "", phone: "", enquiryType: "", message: "", website: "" });
         setPrivacyAccepted(false);
       } else if (data.mailtoLink) {
-        window.location.href = data.mailtoLink;
+        setDraftLink(data.mailtoLink);
         setStatus("draft");
+        window.location.href = data.mailtoLink;
       } else {
         setErrorMessage("Email delivery is not configured. Please email info@integritass.com directly.");
         setStatus("error");
@@ -1189,7 +1236,7 @@ function ContactSection() {
                   <span>I agree that Integritas may use these details to respond to my enquiry, as explained in the <a href="/privacy" className="text-[#D4AF37] underline underline-offset-4 hover:text-[#E5C07B]">Privacy Notice</a>.</span>
                 </label>
                 <p id="contact-form-note" className="text-[11px] text-[#8A857C] leading-relaxed">
-                  Fields marked * are required. If direct delivery is not configured, we will open a prepared email draft for you to review and send.
+                  Fields marked * are required. Submitting may open your email app; if it does, review the draft and press Send there to complete your enquiry.
                 </p>
                 <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-4">
                   <button
@@ -1199,25 +1246,27 @@ function ContactSection() {
                   >
                     <span>
                       {status === "sending"
-                        ? "Sending…"
+                        ? "Processing…"
                         : status === "sent"
-                        ? "Enquiry Delivered"
+                        ? "Enquiry Submitted"
                         : status === "draft"
-                        ? "Email Draft Prepared"
+                        ? "Prepare Draft Again"
                         : status === "error"
                         ? "Try Again"
-                        : "Send Enquiry"}
+                        : "Continue with Enquiry"}
                     </span>
                   </button>
                   <span id="contact-form-status" role="status" aria-live="polite" className="min-h-5 text-xs tracking-wide">
                   {status === "sent" && (
                     <span className="text-[#D4AF37] animate-fade-in">
-                      Thank you. Your enquiry has been delivered.
+                      Thank you. Your enquiry was submitted to Integritas.
                     </span>
                   )}
                   {status === "draft" && (
                     <span className="text-[#D4AF37] animate-fade-in">
-                      Your email draft is ready—please review and press Send.
+                      Your enquiry has not been sent. Review the draft in your email app and press Send. {draftLink && (
+                        <a href={draftLink} className="underline underline-offset-4 hover:text-[#E5C07B]">Open email draft</a>
+                      )}
                     </span>
                   )}
                   {status === "error" && (
