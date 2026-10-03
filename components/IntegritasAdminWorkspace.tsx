@@ -109,6 +109,14 @@ const STAGE_COPY: Record<string, { label: string; note: string }> = {
   research_limit_reached: { label: "Research limit reached", note: "The report records what was completed and what remains open." },
 };
 
+const RUNTIME_STATUS_POLL_MS = 20_000;
+
+async function loadRuntimeStatus(): Promise<RuntimeStatus | null> {
+  const payload = await crmRequest({ action: "runtime_status" });
+  const runtimes = Array.isArray(payload.runtimes) ? payload.runtimes : [];
+  return (runtimes.find((item: RuntimeStatus) => item.worker_id === "oracle-primary") ?? runtimes[0] ?? null) as RuntimeStatus | null;
+}
+
 async function crmRequest(body: Record<string, unknown>) {
   const response = await fetch("/api/crm/backend", {
     method: "POST",
@@ -252,6 +260,7 @@ export default function IntegritasAdminWorkspace() {
   const [activeCaseId, setActiveCaseId] = useState("");
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [runtimeCheckedAt, setRuntimeCheckedAt] = useState(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [archiveMenu, setArchiveMenu] = useState<string | null>(null);
@@ -270,7 +279,7 @@ export default function IntegritasAdminWorkspace() {
     ? STAGE_COPY.completed
     : STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
   const running = Boolean(job && !TERMINAL.has(job.stage));
-  const ready = isInvestigationRuntimeReady(runtime);
+  const ready = isInvestigationRuntimeReady(runtime, runtimeCheckedAt);
   const canContinue = Boolean(
     !reportFinalized
       && job?.id
@@ -397,12 +406,12 @@ export default function IntegritasAdminWorkspace() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      crmRequest({ action: "runtime_status" }),
+      loadRuntimeStatus(),
       crmRequest({ action: "list_cases" }),
-    ]).then(([runtimePayload, casePayload]) => {
+    ]).then(([runtimeStatus, casePayload]) => {
       if (cancelled) return;
-      const runtimes = Array.isArray(runtimePayload.runtimes) ? runtimePayload.runtimes : [];
-      setRuntime((runtimes.find((item: RuntimeStatus) => item.worker_id === "oracle-primary") ?? runtimes[0] ?? null) as RuntimeStatus | null);
+      setRuntime(runtimeStatus);
+      setRuntimeCheckedAt(Date.now());
       const rows = (Array.isArray(casePayload.cases) ? casePayload.cases : [])
         .filter((row: CaseRow) => !String(row.title || "").startsWith("[SYNTHETIC]")) as CaseRow[];
       setCases(rows);
@@ -411,6 +420,38 @@ export default function IntegritasAdminWorkspace() {
       if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
     });
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let requestPending = false;
+    const refreshRuntime = () => {
+      if (cancelled || document.visibilityState === "hidden") return;
+      setRuntimeCheckedAt(Date.now());
+      if (requestPending) return;
+      requestPending = true;
+      void loadRuntimeStatus()
+        .then((status) => { if (!cancelled) setRuntime(status); })
+        .catch(() => {
+          // The last heartbeat expires through the readiness check, so failed refreshes fail closed.
+        })
+        .finally(() => {
+          requestPending = false;
+          if (!cancelled) setRuntimeCheckedAt(Date.now());
+        });
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshRuntime();
+    };
+    const timer = window.setInterval(refreshRuntime, RUNTIME_STATUS_POLL_MS);
+    window.addEventListener("focus", refreshRuntime);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshRuntime);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
