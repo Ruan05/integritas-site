@@ -81,6 +81,8 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(workspace, /Upload and start investigation/);
   assert.match(workspace, /action: "start_case_investigation"/);
   assert.doesNotMatch(workspace, /isInvestigationRuntimeReady|runtime_status|Investigation service unavailable/);
+  assert.match(workspace, /Oracle report requires review/);
+  assert.match(workspace, /The comprehensive report is saved in the CRM from Oracle's verified report snapshot/);
   assert.match(workspace, /Investigation progress/);
   assert.match(workspace, /Download report/);
   assert.match(workspace, /Previous investigations/);
@@ -89,4 +91,12 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.doesNotMatch(workspace, /signInWithOtp|Authorized analyst sign-in|Send secure sign-in link/);
   assert.match(browser, /MAX_CASE_DOCUMENTS = 20/);
   assert.match(browser, /worker_version, \[0, 3, 6\]/);
+});
+
+test("serves the sealed Oracle PDF artifact through the CRM instead of rebuilding it", async () => {
+  const route = await source("app/api/crm/report/route.ts");
+  assert.match(route, /action: "get_report_pdf"/);
+  assert.match(route, /verifyOracleArtifactBytes/);
+  assert.match(route, /oracle-sealed-artifact/);
+  assert.doesNotMatch(route, /createReportPdf/);
 });

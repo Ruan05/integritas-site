@@ -302,13 +302,29 @@ export default function IntegritasAdminWorkspace() {
   }, [report]);
   const progress = job?.progress ?? 0;
   const submodule = job ? currentSubmodule(job, snapshot) : null;
-  const reportIncomplete = Boolean(report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
+  const reportMatchesCurrentJob = Boolean(!job || (report?.case_job_id === job.id
+    && Number(report?.based_on_revision) === Number(job.case_revision)));
+  const reportIncomplete = Boolean(reportMatchesCurrentJob && report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
   const modelEligible = reportEligibleForFinalization(verifiedModel);
-  const reportFinalized = report?.status === "finalized" && !reportIncomplete && modelEligible;
+  const reportFinalized = reportMatchesCurrentJob && report?.status === "finalized" && !reportIncomplete && modelEligible;
   const stage = reportIncomplete
     ? STAGE_COPY.incomplete
     : reportFinalized
       ? STAGE_COPY.completed
+      : job && !TERMINAL.has(job.stage)
+        ? STAGE_COPY[job.stage] ?? STAGE_COPY.queued
+        : reportMatchesCurrentJob && report
+          ? {
+              label: "Oracle report requires review",
+              note: modelEligible
+                ? "The comprehensive report is saved in the CRM from Oracle's verified report snapshot. Analyst review is still required."
+                : "Oracle saved a draft, but its evidence, critic or report-integrity gates are not verified. It cannot be marked complete or released as a final PDF.",
+            }
+          : job?.stage === "completed"
+            ? {
+                label: "Oracle run ended — report not verified",
+                note: "The run has no report snapshot verified for this case revision. The investigation is not ready for release.",
+              }
       : STAGE_COPY[job?.stage ?? "queued"] ?? STAGE_COPY.queued;
   const running = Boolean(job && !TERMINAL.has(job.stage));
   const canContinue = Boolean(

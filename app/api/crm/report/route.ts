@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createReportPdf } from "@/lib/report-pdf";
 import { crmSessionCookie, isValidCrmSession } from "@/lib/crm-auth";
 import { reportNeedsHold } from "@/lib/report-disposition";
 import { reportEligibleForFinalization, verifyReportModel } from "@/lib/integritas-report-model";
+import { verifyOracleArtifactBytes } from "@/lib/oracle-report-artifact";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,34 @@ function meetsComprehensiveReportGate(content: string, snapshot: Record<string, 
     && Array.isArray(snapshot.documents) && snapshot.documents.length > 0
     && Array.isArray(snapshot.findings) && snapshot.findings.length > 0
     && Array.isArray(snapshot.sources) && snapshot.sources.length > 0;
+}
+
+async function getOracleReportPdf(caseJobId: string, token: string, expectedRevision: number) {
+  const artifactResponse = await fetch(ADMIN_API, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-integritas-crm-token": token },
+    body: JSON.stringify({ action: "get_report_pdf", caseJobId }),
+    cache: "no-store",
+  });
+  const artifact = await artifactResponse.json().catch(() => ({}));
+  if (!artifactResponse.ok || typeof artifact.url !== "string") {
+    throw Object.assign(new Error("Oracle's canonical report PDF is not available."), {
+      status: artifactResponse.status === 404 ? 409 : 502,
+    });
+  }
+  if (Number(artifact.caseRevision) !== expectedRevision) {
+    throw Object.assign(new Error("Oracle's report PDF belongs to a different case revision."), { status: 409 });
+  }
+
+  const pdfResponse = await fetch(artifact.url, { cache: "no-store" });
+  if (!pdfResponse.ok || !(pdfResponse.headers.get("content-type") || "").toLowerCase().includes("application/pdf")) {
+    throw Object.assign(new Error("Oracle's report PDF could not be retrieved."), { status: 502 });
+  }
+  const bytes = new Uint8Array(await pdfResponse.arrayBuffer());
+  if (!await verifyOracleArtifactBytes(bytes, artifact.sha256, Number(artifact.sizeBytes))) {
+    throw Object.assign(new Error("Oracle's report PDF failed its integrity check."), { status: 502 });
+  }
+  return bytes;
 }
 
 export async function GET(request: Request) {
@@ -62,25 +90,14 @@ export async function GET(request: Request) {
     if (job?.stage !== "completed") {
       return NextResponse.json({ error: "The source investigation has not completed." }, { status: 409 });
     }
+    if (!/^[0-9a-f-]{36}$/i.test(String(report.case_job_id || ""))
+      || Number(job.case_revision) !== Number(report.based_on_revision)) {
+      return NextResponse.json({ error: "The report is not bound to the completed Oracle investigation revision." }, { status: 409 });
+    }
     if (!meetsComprehensiveReportGate(String(report.content_markdown), snapshot)) {
       return NextResponse.json({ error: "The report did not pass the comprehensive evidence and structure gate. Re-run or continue the investigation before downloading the PDF." }, { status: 409 });
     }
-    const forJob = (rows: unknown) => Array.isArray(rows) ? rows.filter((row: { case_job_id?: string }) => row.case_job_id === report.case_job_id) : [];
-    const pdf = await createReportPdf(
-      caseTitle,
-      String(report.summary || ""),
-      String(report.content_markdown),
-      new Date().toISOString(),
-      {
-        documents: Array.isArray(snapshot.documents) ? snapshot.documents : [],
-        sources: forJob(snapshot.sources),
-        findings: forJob(snapshot.findings),
-        checks: forJob(snapshot.checks),
-        entities: forJob(snapshot.entities),
-        relationships: forJob(snapshot.relationships),
-        reportStatus: String(report.status || ""),
-      },
-    );
+    const pdf = await getOracleReportPdf(String(report.case_job_id), token, Number(report.based_on_revision));
     const filename = `Integritas - ${caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report"}.pdf`;
     return new NextResponse(pdf, {
       status: 200,
@@ -89,9 +106,11 @@ export async function GET(request: Request) {
         "content-disposition": `${disposition}; filename="${filename}"`,
         "cache-control": "no-store",
         "x-content-type-options": "nosniff",
+        "x-integritas-source": "oracle-sealed-artifact",
       },
     });
-  } catch {
-    return NextResponse.json({ error: "The report service could not complete this request." }, { status: 502 });
+  } catch (error) {
+    const status = Number((error as { status?: number })?.status) || 502;
+    return NextResponse.json({ error: "The verified Oracle report artifact could not be served." }, { status });
   }
 }

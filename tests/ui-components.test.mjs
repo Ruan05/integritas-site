@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test, { after } from "node:test";
@@ -137,6 +138,41 @@ test("renders all report table rows, long prose, and closure checks across pages
   assert.match(text, /unique-marker-35/);
   assert.match(text, /closure-check-25/);
   assert.match(text, /\/Count [3-9][0-9]* >>/);
+});
+
+test("relationship register preserves actual endpoints and every persisted edge", async () => {
+  const { createReportPdf } = await vite.ssrLoadModule("/lib/report-pdf.ts");
+  const entities = [
+    { id: "entity-a", display_name: "Actual From Entity" },
+    { id: "entity-b", display_name: "Actual To Entity" },
+  ];
+  const relationships = Array.from({ length: 8 }, (_, i) => ({
+    from_entity_id: "entity-a",
+    to_entity_id: "entity-b",
+    source_id: "source-a",
+    relationship_type: "asserted role",
+    evidence_status: "alleged",
+    claim: `relationship-marker-${i + 1}`,
+  }));
+  const pdf = Buffer.from(createReportPdf("Case", "Summary", "# MASTER SUMMARY — READ THIS FIRST\n\nDraft.", "2026-09-25T00:00:00.000Z", {
+    entities, relationships, sources: [{ id: "source-a", source_key: "doc.actual" }],
+  }));
+  const text = pdf.toString("utf8");
+  assert.match(text, /Actual From Entity -> Actual To Entity/);
+  assert.match(text, /Source: doc.actual/);
+  assert.match(text, /relationship-marker-8/);
+  assert.doesNotMatch(text, /Evidence relationship map/);
+});
+
+test("accepts Oracle PDF bytes only when their stored size and SHA-256 match", async () => {
+  const { verifyOracleArtifactBytes } = await vite.ssrLoadModule("/lib/oracle-report-artifact.ts");
+  const bytes = new TextEncoder().encode("%PDF-1.7\nsealed Oracle report\n%%EOF");
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+
+  assert.equal(await verifyOracleArtifactBytes(bytes, sha256, bytes.byteLength), true);
+  assert.equal(await verifyOracleArtifactBytes(bytes, sha256, bytes.byteLength + 1), false);
+  assert.equal(await verifyOracleArtifactBytes(bytes, "0".repeat(64), bytes.byteLength), false);
+  assert.equal(await verifyOracleArtifactBytes(bytes, "invalid", bytes.byteLength), false);
 });
 
 test("emits chart themes for the starter's media dark mode", async () => {
