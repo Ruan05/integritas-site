@@ -78,7 +78,9 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(backend, /INTEGRITAS_CRM_BACKEND_TOKEN/);
   assert.match(backend, /x-integritas-crm-token/);
   assert.match(workspace, /Upload documents to investigate/);
-  assert.match(workspace, /Start investigation/);
+  assert.match(workspace, /Upload and start investigation/);
+  assert.match(workspace, /action: "start_case_investigation"/);
+  assert.doesNotMatch(workspace, /isInvestigationRuntimeReady|runtime_status|Investigation service unavailable/);
   assert.match(workspace, /Investigation progress/);
   assert.match(workspace, /Download report/);
   assert.match(workspace, /Previous investigations/);
