@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createReportPdf } from "@/lib/report-pdf";
 import { crmSessionCookie, isValidCrmSession } from "@/lib/crm-auth";
 import { reportNeedsHold } from "@/lib/report-disposition";
+import { reportEligibleForFinalization, verifyReportModel } from "@/lib/integritas-report-model";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +54,18 @@ export async function GET(request: Request) {
     if (reportNeedsHold(String(report.summary || ""), String(report.content_markdown))) {
       return NextResponse.json({ error: "This investigation has an incomplete or hold disposition. Its PDF cannot be presented as a finalized report." }, { status: 409 });
     }
+    const model = await verifyReportModel(report);
+    if (!reportEligibleForFinalization(model)) {
+      return NextResponse.json({ error: "The canonical report snapshot or its evidence and critic gates could not be verified. Re-run the investigation before PDF release." }, { status: 409 });
+    }
+    const job = Array.isArray(snapshot.jobs) ? snapshot.jobs.find((row: { id?: string; stage?: string }) => row.id === report.case_job_id) : null;
+    if (job?.stage !== "completed") {
+      return NextResponse.json({ error: "The source investigation has not completed." }, { status: 409 });
+    }
     if (!meetsComprehensiveReportGate(String(report.content_markdown), snapshot)) {
       return NextResponse.json({ error: "The report did not pass the comprehensive evidence and structure gate. Re-run or continue the investigation before downloading the PDF." }, { status: 409 });
     }
+    const forJob = (rows: unknown) => Array.isArray(rows) ? rows.filter((row: { case_job_id?: string }) => row.case_job_id === report.case_job_id) : [];
     const pdf = await createReportPdf(
       caseTitle,
       String(report.summary || ""),
@@ -63,11 +73,11 @@ export async function GET(request: Request) {
       new Date().toISOString(),
       {
         documents: Array.isArray(snapshot.documents) ? snapshot.documents : [],
-        sources: Array.isArray(snapshot.sources) ? snapshot.sources : [],
-        findings: Array.isArray(snapshot.findings) ? snapshot.findings : [],
-        checks: Array.isArray(snapshot.checks) ? snapshot.checks : [],
-        entities: Array.isArray(snapshot.entities) ? snapshot.entities : [],
-        relationships: Array.isArray(snapshot.relationships) ? snapshot.relationships : [],
+        sources: forJob(snapshot.sources),
+        findings: forJob(snapshot.findings),
+        checks: forJob(snapshot.checks),
+        entities: forJob(snapshot.entities),
+        relationships: forJob(snapshot.relationships),
         reportStatus: String(report.status || ""),
       },
     );

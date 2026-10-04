@@ -5,6 +5,7 @@ import * as tus from "tus-js-client";
 import { integritasSupabase } from "@/lib/integritas-supabase";
 import InvestigationReport from "@/components/InvestigationReport";
 import { reportNeedsHold } from "@/lib/report-disposition";
+import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportModel } from "@/lib/integritas-report-model";
 import {
   Archive,
   CheckCircle2,
@@ -58,6 +59,8 @@ type CheckpointRow = { stage?: string; progress?: number; attempt?: number; safe
 
 type ReportRow = {
   id: string;
+  case_id?: string;
+  case_job_id?: string;
   status: string;
   summary?: string;
   content_markdown?: string;
@@ -65,6 +68,8 @@ type ReportRow = {
   created_at?: string;
   updated_at?: string;
   based_on_revision?: number;
+  report_model?: unknown;
+  report_model_sha256?: string;
 };
 
 type Snapshot = {
@@ -287,6 +292,8 @@ export default function IntegritasAdminWorkspace() {
   const [runtimeCheckedAt, setRuntimeCheckedAt] = useState(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
+  const [verifiedModel, setVerifiedModel] = useState<VerifiedReportModel | null>(null);
+  const [modelChecked, setModelChecked] = useState(false);
   const [archiveMenu, setArchiveMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -296,10 +303,20 @@ export default function IntegritasAdminWorkspace() {
   );
   const job = newestJob(snapshot);
   const report = newestReport(snapshot);
+  useEffect(() => {
+    let live = true;
+    setVerifiedModel(null);
+    setModelChecked(false);
+    void verifyReportModel(report ?? null).then((model) => {
+      if (live) { setVerifiedModel(model); setModelChecked(true); }
+    }).catch(() => { if (live) setModelChecked(true); });
+    return () => { live = false; };
+  }, [report]);
   const progress = job?.progress ?? 0;
   const submodule = job ? currentSubmodule(job, snapshot) : null;
   const reportIncomplete = Boolean(report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
-  const reportFinalized = report?.status === "finalized" && !reportIncomplete;
+  const modelEligible = reportEligibleForFinalization(verifiedModel);
+  const reportFinalized = report?.status === "finalized" && !reportIncomplete && modelEligible;
   const stage = reportIncomplete
     ? STAGE_COPY.incomplete
     : reportFinalized
@@ -317,6 +334,10 @@ export default function IntegritasAdminWorkspace() {
 
   const runReportAction = async (action: "review_report" | "finalize_report") => {
     if (!report?.id) return;
+    if (action === "finalize_report" && (!modelEligible || reportIncomplete)) {
+      setNotice("This report has not passed the verified evidence and critic gates. Keep it in analyst review.");
+      return;
+    }
     setSubmitting(true);
     try {
       await crmRequest({ action, reportId: report.id });
@@ -725,6 +746,13 @@ export default function IntegritasAdminWorkspace() {
               <div className="mt-6 border-t border-white/8 pt-5">
                 <p className="text-sm leading-6 text-[#C9C0B3]">{report.summary || "Your report is ready and has been saved to the archive."}</p>
                 <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[#827A71]">Status: {reportIncomplete ? "HOLD — INCOMPLETE" : report.status}</p>
+                {modelChecked ? verifiedModel ? (
+                  <div className="mt-3 border border-[#D4AF37]/25 bg-[#D4AF37]/[0.05] px-3 py-2 text-xs leading-5 text-[#C9C0B3]">
+                    <p className="font-semibold text-[#E4C45F]">Verified report snapshot · {verifiedModel.disposition.replaceAll("_", " ")}</p>
+                    <p>{verifiedModel.counts.submitted_documents} submitted documents · {verifiedModel.counts.findings} findings · {verifiedModel.counts.sources} sources · {verifiedModel.counts.unresolved_gates} unresolved gates</p>
+                    <p>Pre-report critic: {verifiedModel.quality.pre_report_critic}; final report critic: {verifiedModel.quality.final_report_critic}. Analyst review remains required.</p>
+                  </div>
+                ) : <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">Legacy or unverified report snapshot. The report can be read as a draft; finalization and PDF release require a verified rerun.</p> : null}
                 {reportIncomplete ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">The investigation disposition is incomplete. Keep this report on hold until its open verification gates are resolved; PDF finalization is disabled.</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {report.status === "draft" ? (
@@ -732,12 +760,12 @@ export default function IntegritasAdminWorkspace() {
                       Mark reviewed
                     </button>
                   ) : null}
-                  {report.status === "reviewed" && !reportIncomplete ? (
+                  {report.status === "reviewed" && !reportIncomplete && modelEligible ? (
                     <button type="button" onClick={() => void runReportAction("finalize_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
                       Finalize report
                     </button>
                   ) : null}
-                  {report.status === "finalized" && !reportIncomplete ? (
+                  {reportFinalized ? (
                     <>
                       <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
                         <FileText size={14} /> Open PDF
