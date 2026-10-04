@@ -302,8 +302,9 @@ export default function IntegritasAdminWorkspace() {
   }, [report]);
   const progress = job?.progress ?? 0;
   const submodule = job ? currentSubmodule(job, snapshot) : null;
-  const reportMatchesCurrentJob = Boolean(!job || (report?.case_job_id === job.id
-    && Number(report?.based_on_revision) === Number(job.case_revision)));
+  const reportMatchesCurrentJob = Boolean(job && report?.case_job_id === job.id
+    && Number(report?.based_on_revision) === Number(job.case_revision)
+    && Number(report?.based_on_revision) === Number(snapshot?.case?.revision));
   const reportIncomplete = Boolean(reportMatchesCurrentJob && report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
   const modelEligible = reportEligibleForFinalization(verifiedModel);
   const reportFinalized = reportMatchesCurrentJob && report?.status === "finalized" && !reportIncomplete && modelEligible;
@@ -712,6 +713,7 @@ export default function IntegritasAdminWorkspace() {
               <div className="mt-6 border-t border-white/8 pt-5">
                 <p className="text-sm leading-6 text-[#C9C0B3]">{report.summary || "Your report is ready and has been saved to the archive."}</p>
                 <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[#827A71]">Status: {reportIncomplete ? "HOLD — INCOMPLETE" : report.status}</p>
+                {!reportMatchesCurrentJob ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">Historical report from an earlier investigation or case revision. Run the current revision before review or PDF release.</p> : null}
                 {modelChecked ? verifiedModel ? (
                   <div className="mt-3 border border-[#D4AF37]/25 bg-[#D4AF37]/[0.05] px-3 py-2 text-xs leading-5 text-[#C9C0B3]">
                     <p className="font-semibold text-[#E4C45F]">Verified report snapshot · {verifiedModel.disposition.replaceAll("_", " ")}</p>
@@ -721,12 +723,12 @@ export default function IntegritasAdminWorkspace() {
                 ) : <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">Legacy or unverified report snapshot. The report can be read as a draft; finalization and PDF release require a verified rerun.</p> : null}
                 {reportIncomplete ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">The investigation disposition is incomplete. Keep this report on hold until its open verification gates are resolved; PDF finalization is disabled.</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {report.status === "draft" ? (
+                  {reportMatchesCurrentJob && report.status === "draft" ? (
                     <button type="button" onClick={() => void runReportAction("review_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
                       Mark reviewed
                     </button>
                   ) : null}
-                  {report.status === "reviewed" && !reportIncomplete && modelEligible ? (
+                  {reportMatchesCurrentJob && report.status === "reviewed" && !reportIncomplete && modelEligible ? (
                     <button type="button" onClick={() => void runReportAction("finalize_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
                       Finalize report
                     </button>

@@ -83,6 +83,8 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.doesNotMatch(workspace, /isInvestigationRuntimeReady|runtime_status|Investigation service unavailable/);
   assert.match(workspace, /Oracle report requires review/);
   assert.match(workspace, /The comprehensive report is saved in the CRM from Oracle's verified report snapshot/);
+  assert.match(workspace, /Number\(report\?\.based_on_revision\) === Number\(snapshot\?\.case\?\.revision\)/);
+  assert.match(workspace, /Historical report from an earlier investigation or case revision/);
   assert.match(workspace, /Investigation progress/);
   assert.match(workspace, /Download report/);
   assert.match(workspace, /Previous investigations/);
@@ -98,5 +100,6 @@ test("serves the sealed Oracle PDF artifact through the CRM instead of rebuildin
   assert.match(route, /action: "get_report_pdf"/);
   assert.match(route, /verifyOracleArtifactBytes/);
   assert.match(route, /oracle-sealed-artifact/);
+  assert.match(route, /Number\(report\.based_on_revision\) !== currentRevision/);
   assert.doesNotMatch(route, /createReportPdf/);
 });

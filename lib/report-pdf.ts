@@ -2,11 +2,11 @@ const encoder = new TextEncoder();
 
 type ReportContext = {
   documents?: unknown[];
-  sources?: Array<{ evidence_origin?: string | null; source_type?: string | null; verification_state?: string | null }>;
+  sources?: Array<{ id?: string | null; source_key?: string | null; title?: string | null; evidence_origin?: string | null; source_type?: string | null; verification_state?: string | null }>;
   findings?: unknown[];
   checks?: Array<{ status?: string | null }>;
-  entities?: Array<{ display_name?: string | null; entity_type?: string | null; match_status?: string | null; match_confidence?: number | null }>;
-  relationships?: Array<{ claim?: string | null; relationship_type?: string | null; evidence_status?: string | null }>;
+  entities?: Array<{ id?: string | null; display_name?: string | null; entity_type?: string | null; match_status?: string | null; match_confidence?: number | null }>;
+  relationships?: Array<{ from_entity_id?: string | null; to_entity_id?: string | null; source_id?: string | null; claim?: string | null; relationship_type?: string | null; evidence_status?: string | null }>;
   reportStatus?: string | null;
 };
 
@@ -246,26 +246,21 @@ function qualityDashboard(pages: PdfPage[], context: ReportContext) {
 }
 
 function relationshipMap(pages: PdfPage[], context: ReportContext) {
-  const entities = context.entities || [];
   const relationships = context.relationships || [];
-  heading(pages, "Evidence relationship map");
-  paragraph(pages, "The map represents submitted or ledger-recorded relationships only. It is not proof of ownership, authority, common control or transaction performance.");
-  const page = ensure(pages, 160);
-  const names = entities.slice(0, 6).map((entity) => String(entity.display_name || "Unnamed entity").slice(0, 24));
-  const points = names.length ? names : ["No entity records persisted"];
-  const coords = points.map((_, index) => [MARGIN + 55 + (index % 3) * 168, page.cursor + 24 + Math.floor(index / 3) * 62]);
-  relationships.slice(0, 6).forEach((_, index) => {
-    const a = coords[index % coords.length];
-    const b = coords[(index + 1) % coords.length];
-    page.commands.push(`q ${rgb(colors.gold)} RG 1 w ${a[0] + 43} ${(PAGE_H - (a[1] + 17)).toFixed(2)} m ${b[0] - 43} ${(PAGE_H - (b[1] + 17)).toFixed(2)} l S Q`);
+  heading(pages, "Evidence relationship register");
+  paragraph(pages, "Each row records a persisted relationship and its evidence status. A submitted assertion is not proof of ownership, authority, common control or transaction performance.");
+  if (!relationships.length) {
+    paragraph(pages, "No relationship rows were persisted for this investigation.", { panel: true });
+    return;
+  }
+  const entities = new Map((context.entities || []).map((item) => [item.id, item.display_name]));
+  const sources = new Map((context.sources || []).map((item) => [item.id, item.source_key || item.title]));
+  relationships.forEach((item) => {
+    const from = entities.get(item.from_entity_id) || "Unresolved source entity";
+    const to = entities.get(item.to_entity_id) || "Unresolved target entity";
+    const source = sources.get(item.source_id) || "No linked source";
+    paragraph(pages, `${from} -> ${to}; ${item.relationship_type || "relationship"}; ${String(item.evidence_status || "unknown").toUpperCase()}; Source: ${source}. ${item.claim || "No claim text recorded."}`, { panel: item.evidence_status !== "verified" });
   });
-  points.forEach((name, index) => {
-    const [left, top] = coords[index];
-    rect(page, left - 43, top, 86, 34, index % 2 ? colors.panel : colors.parchment);
-    text(page, name.slice(0, 20), left - 37, top + 15, 6.4, "F2", colors.ink);
-    text(page, String(entities[index]?.entity_type || "entity").slice(0, 16), left - 37, top + 26, 5.8, "F1", colors.muted);
-  });
-  page.cursor += 140;
 }
 
 function closureRegister(pages: PdfPage[], context: ReportContext) {

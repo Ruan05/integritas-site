@@ -76,8 +76,12 @@ export async function GET(request: Request) {
     if (!response.ok) return NextResponse.json({ error: "Report is unavailable." }, { status: response.status });
     const report = Array.isArray(snapshot.reports) ? snapshot.reports[0] : null;
     const caseTitle = String(snapshot.case?.title || "Integritas investigation");
+    const currentRevision = Number(snapshot.case?.revision);
     if (!report?.content_markdown || report.status !== "finalized") {
       return NextResponse.json({ error: "The report must be reviewed and finalized before PDF download." }, { status: 409 });
+    }
+    if (!Number.isSafeInteger(currentRevision) || Number(report.based_on_revision) !== currentRevision) {
+      return NextResponse.json({ error: "This report belongs to an earlier case revision. Run the current investigation before PDF release." }, { status: 409 });
     }
     if (reportNeedsHold(String(report.summary || ""), String(report.content_markdown))) {
       return NextResponse.json({ error: "This investigation has an incomplete or hold disposition. Its PDF cannot be presented as a finalized report." }, { status: 409 });
@@ -86,8 +90,8 @@ export async function GET(request: Request) {
     if (!reportEligibleForFinalization(model)) {
       return NextResponse.json({ error: "The canonical report snapshot or its evidence and critic gates could not be verified. Re-run the investigation before PDF release." }, { status: 409 });
     }
-    const job = Array.isArray(snapshot.jobs) ? snapshot.jobs.find((row: { id?: string; stage?: string }) => row.id === report.case_job_id) : null;
-    if (job?.stage !== "completed") {
+    const job = Array.isArray(snapshot.jobs) ? snapshot.jobs.find((row: { id?: string; stage?: string; case_revision?: number }) => row.id === report.case_job_id) : null;
+    if (job?.stage !== "completed" || Number(job.case_revision) !== currentRevision) {
       return NextResponse.json({ error: "The source investigation has not completed." }, { status: 409 });
     }
     if (!/^[0-9a-f-]{36}$/i.test(String(report.case_job_id || ""))
