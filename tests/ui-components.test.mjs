@@ -126,6 +126,19 @@ test("removes duplicated executive markdown from the CRM PDF renderer", async ()
   assert.match(text, /DOCUMENT, FORENSIC & ENTITY REVIEW/);
 });
 
+test("renders all report table rows, long prose, and closure checks across pages", async () => {
+  const { createReportPdf } = await vite.ssrLoadModule("/lib/report-pdf.ts");
+  const rows = Array.from({ length: 35 }, (_, i) => `| Evidence ${i + 1} | unique-marker-${i + 1} |`).join("\n");
+  const prose = `${"The evidence remains subject to direct verification. ".repeat(260)}final-long-paragraph-marker`;
+  const checks = Array.from({ length: 25 }, (_, i) => ({ status: "open", description: `closure-check-${i + 1}` }));
+  const pdf = Buffer.from(createReportPdf("Case", "Summary", `# MASTER SUMMARY — READ THIS FIRST\n\n${prose}\n\n| Item | Note |\n| --- | --- |\n${rows}`, "2026-09-25T00:00:00.000Z", { checks }));
+  const text = pdf.toString("utf8");
+  assert.match(text, /final-long-paragraph-marker/);
+  assert.match(text, /unique-marker-35/);
+  assert.match(text, /closure-check-25/);
+  assert.match(text, /\/Count [3-9][0-9]* >>/);
+});
+
 test("emits chart themes for the starter's media dark mode", async () => {
   const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
   const html = renderToStaticMarkup(

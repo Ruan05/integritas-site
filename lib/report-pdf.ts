@@ -2,7 +2,7 @@ const encoder = new TextEncoder();
 
 type ReportContext = {
   documents?: unknown[];
-  sources?: Array<{ evidence_origin?: string | null; source_type?: string | null }>;
+  sources?: Array<{ evidence_origin?: string | null; source_type?: string | null; verification_state?: string | null }>;
   findings?: unknown[];
   checks?: Array<{ status?: string | null }>;
   entities?: Array<{ display_name?: string | null; entity_type?: string | null; match_status?: string | null; match_confidence?: number | null }>;
@@ -97,14 +97,6 @@ function summaryForDisplay(value: string) {
   return clean((nextSection >= 0 ? text.slice(0, nextSection) : text).slice(0, 3600));
 }
 
-function reportBodyWithoutExecutiveDuplicate(value: string) {
-  const text = String(value ?? '').trim();
-  const master = text.search(/^# MASTER SUMMARY — READ THIS FIRST\s*/im);
-  if (master < 0) return text;
-  const direct = text.search(/^## DIRECT NEXT STEPS — WHAT TO DO NOW\s*/im);
-  return direct >= 0 ? text.slice(direct).trim() : text;
-}
-
 function isDivider(line: string) { return /^\s*\|?\s*:?-{2,}/.test(line); }
 function tableRow(line: string) { return line.split("|").map((cell) => clean(cell)).filter(Boolean).join("  -  "); }
 
@@ -134,7 +126,7 @@ function parseMarkdown(markdown: string): Block[] {
         index += 1;
       }
       index -= 1;
-      if (rows.length) blocks.push({ type: "table", rows: rows.slice(0, 20) });
+      if (rows.length) blocks.push({ type: "table", rows });
       continue;
     }
     const bullet = line.match(/^(?:[-*+]\s+|\d+[.)]\s+)(.+)$/);
@@ -169,11 +161,19 @@ function paragraph(pages: PdfPage[], value: string, options: { bullet?: boolean;
   const size = options.bullet ? 9.5 : 10;
   const indent = options.bullet ? 13 : 0;
   const lines = wrap(value, size, BODY_W - indent - (options.panel ? 18 : 0));
-  const height = lines.length * (size * 1.55) + 8;
-  const page = ensure(pages, height + (options.panel ? 12 : 0));
-  if (options.panel) rect(page, MARGIN, page.cursor - 4, BODY_W, height + 8, colors.panel);
-  lines.forEach((line, index) => text(page, `${options.bullet && index === 0 ? "-  " : ""}${line}`, MARGIN + indent + (options.panel ? 9 : 0), page.cursor + index * size * 1.55, size, "F1", colors.ink));
-  page.cursor += height + (options.panel ? 8 : 0);
+  let offset = 0;
+  while (offset < lines.length) {
+    let page = pages[pages.length - 1];
+    if (page.cursor > 710) { page = standardPage(); pages.push(page); }
+    const lineHeight = size * 1.55;
+    const available = Math.max(1, Math.floor((730 - page.cursor - (options.panel ? 20 : 8)) / lineHeight));
+    const chunk = lines.slice(offset, offset + available);
+    const height = chunk.length * lineHeight + 8;
+    if (options.panel) rect(page, MARGIN, page.cursor - 4, BODY_W, height + 8, colors.panel);
+    chunk.forEach((line, index) => text(page, `${options.bullet && offset + index === 0 ? "-  " : ""}${line}`, MARGIN + indent + (options.panel ? 9 : 0), page.cursor + index * lineHeight, size, "F1", colors.ink));
+    page.cursor += height + (options.panel ? 8 : 0);
+    offset += chunk.length;
+  }
 }
 
 function heading(pages: PdfPage[], value: string) {
@@ -221,7 +221,7 @@ function qualityDashboard(pages: PdfPage[], context: ReportContext) {
   const sources = context.sources || [];
   const checks = context.checks || [];
   const sourceExternal = sources.filter((source) => source?.evidence_origin === "external_research").length;
-  const validatedExternal = sources.filter((source) => source?.evidence_origin === "external_research" && source?.source_type === "validated").length;
+  const validatedExternal = sources.filter((source) => source?.evidence_origin === "external_research" && ["validated", "claim_supporting"].includes(source?.verification_state || "")).length;
   const uncertain = statusCounts(findings.map((item) => typeof item === "object" && item !== null ? (item as { evidence_status?: string }).evidence_status : "unknown"));
   const complete = checks.filter((item) => item?.status === "complete").length;
   const page = ensure(pages, 142);
@@ -275,7 +275,7 @@ function closureRegister(pages: PdfPage[], context: ReportContext) {
     paragraph(pages, "No check records were supplied to the PDF renderer. The absence of check rows is treated as an unresolved reporting limitation.", { panel: true });
     return;
   }
-  checks.slice(0, 18).forEach((check) => {
+  checks.forEach((check) => {
     const status = String(check.status || "unknown").toUpperCase();
     paragraph(pages, `${status} - ${String((check as { description?: string }).description || (check as { check_key?: string }).check_key || "Unnamed check")}`, { panel: status !== "COMPLETE" });
   });
@@ -311,12 +311,14 @@ function pageStream(page: PdfPage) { return page.commands.join("\n"); }
 export function createReportPdf(title: string, summary: string, content: string, generatedAt: string, context: ReportContext = {}) {
   const pages: PdfPage[] = [cover(title, summary, generatedAt, context), standardPage()];
   const body = pages[pages.length - 1];
-  heading(pages, "Executive decision summary");
-  paragraph(pages, summaryForDisplay(summary || "No executive summary was supplied."), { panel: true });
+  if (!/^# MASTER SUMMARY — READ THIS FIRST\s*/im.test(content)) {
+    heading(pages, "Executive decision summary");
+    paragraph(pages, summaryForDisplay(summary || "No executive summary was supplied."), { panel: true });
+  }
   evidencePanel(pages, context);
   qualityDashboard(pages, context);
   relationshipMap(pages, context);
-  for (const block of parseMarkdown(reportBodyWithoutExecutiveDuplicate(content))) {
+  for (const block of parseMarkdown(content)) {
     if (block.type === "heading") heading(pages, block.text);
     else if (block.type === "bullet") paragraph(pages, block.text, { bullet: true });
     else if (block.type === "table") block.rows.forEach((row) => paragraph(pages, row, { panel: true }));
