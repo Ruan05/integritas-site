@@ -880,7 +880,7 @@ function TeamCard({
                   <Image src="/icononly_transparent.png" alt="Integritas" width={40} height={40} className="h-7 w-auto opacity-80" />
                 </div>
                 <p className="font-serif text-sm sm:text-base tracking-[0.15em] uppercase text-[#D4AF37]">Integritas</p>
-                <p className="text-[7px] sm:text-[8px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &middot; Business &middot; Project Management Consulting</p>
+                <p className="text-[7px] sm:text-[8px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
               </div>
               <div className="gold-line-solid"></div>
               {/* Photo, name, role, bio */}
@@ -921,7 +921,7 @@ function TeamCard({
                   <Image src="/icononly_transparent.png" alt="Integritas" width={28} height={28} className="h-5 w-auto opacity-70" />
                 </div>
                 <p className="bcard-gold-text font-serif text-[11px] tracking-[0.18em] uppercase">Integritas</p>
-                <p className="text-[6px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &middot; Business &middot; Project Management Consulting</p>
+                <p className="text-[6px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
                 <div className="flex items-center justify-center gap-1.5 mt-0.5">
                   <span className="block w-4 h-px bg-[#D4AF37]/25"></span>
                   <span className="text-[5px] tracking-[0.1em] uppercase bcard-gold-text">Integrity &middot; Governance &middot; Excellence</span>
@@ -1103,7 +1103,7 @@ function ContactSection() {
                 Integritas
               </p>
               <p className="text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">
-                Legal &middot; Business &middot; Project Management Consulting
+                Legal &bull; Compliance &bull; Investment &bull; Business Consulting
               </p>
               <div className="flex items-center justify-center gap-2 mt-2.5">
                 <span className="block w-8 h-px bg-[#D4AF37]/40" />
