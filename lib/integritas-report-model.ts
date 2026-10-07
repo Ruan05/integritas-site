@@ -3,7 +3,7 @@ export type VerifiedReportModel = {
   model_version: "integritas-report-model-v1";
   identity: { case_id: string; case_job_id: string; case_revision: number };
   disposition: "eligible_for_analyst_review" | "draft_review_required";
-  quality: { execution: string; pre_report_critic: string; final_report_critic: string; narrative_synthesis: string; analyst_review: string };
+  quality: { execution: string; pre_report_critic: string; final_report_critic: string; narrative_synthesis: string; report_structure: string; document_visual_review: string; analyst_review: string };
   counts: Record<string, number>;
   distributions: Record<string, Record<string, number>>;
   markdown_sha256: string;
@@ -54,5 +54,11 @@ export function reportEligibleForFinalization(model: VerifiedReportModel | null)
     && model.quality.pre_report_critic === "pass"
     && model.quality.final_report_critic === "pass"
     && model.quality.narrative_synthesis === "model_synthesis"
-    && model.counts.unresolved_gates === 0);
+    && model.quality.document_visual_review === "pass"
+    && model.quality.report_structure !== "missing_or_invalid"
+    && (model.quality.report_structure === "not_required"
+      || model.quality.report_structure === "maximum_depth_edd_28_v1_verified"));
 }
+
+export { hasVerifiedMaximumDepthStructure };
+import { hasVerifiedMaximumDepthStructure } from "./maximum-report-structure.mjs";

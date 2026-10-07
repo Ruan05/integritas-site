@@ -2,36 +2,28 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { crmSessionCookie, isValidCrmSession } from "@/lib/crm-auth";
 import { reportNeedsHold } from "@/lib/report-disposition";
-import { reportEligibleForFinalization, verifyReportModel } from "@/lib/integritas-report-model";
+import { hasVerifiedMaximumDepthStructure, reportEligibleForFinalization, verifyReportModel } from "@/lib/integritas-report-model";
 import { verifyOracleArtifactBytes } from "@/lib/oracle-report-artifact";
 
 export const dynamic = "force-dynamic";
 
 const ADMIN_API = "https://leuixjgmlueptefintgo.supabase.co/functions/v1/integritas-admin-api";
 
-function meetsComprehensiveReportGate(content: string, snapshot: Record<string, unknown>) {
+function meetsComprehensiveReportGate(content: string, snapshot: Record<string, unknown>, model: Awaited<ReturnType<typeof verifyReportModel>>) {
   const text = String(content || "");
-  const sectionSignals = [
-    /master summary|executive decision summary/i,
-    /document.{0,24}(forensic|entity)|document, forensic/i,
-    /transaction.{0,24}(research|contradiction)|transaction analysis/i,
-    /evidence.{0,24}(unresolved|methodology)|closure register|source ledger/i,
-    /direct next steps|recommended order|what to do now/i,
-  ];
   const escapedControls = (text.match(/\\\\[nrt]/g) || []).length;
-  return text.length >= 4000
-    && sectionSignals.filter((pattern) => pattern.test(text)).length >= 4
+  return hasVerifiedMaximumDepthStructure(model, text)
     && escapedControls <= 3
     && Array.isArray(snapshot.documents) && snapshot.documents.length > 0
-    && Array.isArray(snapshot.findings) && snapshot.findings.length > 0
+    && Array.isArray(snapshot.findings)
     && Array.isArray(snapshot.sources) && snapshot.sources.length > 0;
 }
 
-async function getOracleReportPdf(caseJobId: string, token: string, expectedRevision: number) {
+async function getOracleReportPdf(caseJobId: string, token: string, expectedRevision: number, draft: boolean) {
   const artifactResponse = await fetch(ADMIN_API, {
     method: "POST",
     headers: { "content-type": "application/json", "x-integritas-crm-token": token },
-    body: JSON.stringify({ action: "get_report_pdf", caseJobId }),
+    body: JSON.stringify({ action: "get_report_pdf", caseJobId, draft }),
     cache: "no-store",
   });
   const artifact = await artifactResponse.json().catch(() => ({}));
@@ -77,31 +69,42 @@ export async function GET(request: Request) {
     const report = Array.isArray(snapshot.reports) ? snapshot.reports[0] : null;
     const caseTitle = String(snapshot.case?.title || "Integritas investigation");
     const currentRevision = Number(snapshot.case?.revision);
-    if (!report?.content_markdown || report.status !== "finalized") {
-      return NextResponse.json({ error: "The report must be reviewed and finalized before PDF download." }, { status: 409 });
-    }
+    const draft = url.searchParams.get("draft") === "1";
+    if (!report?.content_markdown) return NextResponse.json({ error: "Report content is unavailable." }, { status: 409 });
     if (!Number.isSafeInteger(currentRevision) || Number(report.based_on_revision) !== currentRevision) {
       return NextResponse.json({ error: "This report belongs to an earlier case revision. Run the current investigation before PDF release." }, { status: 409 });
     }
-    if (reportNeedsHold(String(report.summary || ""), String(report.content_markdown))) {
-      return NextResponse.json({ error: "This investigation has an incomplete or hold disposition. Its PDF cannot be presented as a finalized report." }, { status: 409 });
-    }
     const model = await verifyReportModel(report);
-    if (!reportEligibleForFinalization(model)) {
-      return NextResponse.json({ error: "The canonical report snapshot or its evidence and critic gates could not be verified. Re-run the investigation before PDF release." }, { status: 409 });
-    }
     const job = Array.isArray(snapshot.jobs) ? snapshot.jobs.find((row: { id?: string; stage?: string; case_revision?: number }) => row.id === report.case_job_id) : null;
-    if (job?.stage !== "completed" || Number(job.case_revision) !== currentRevision) {
-      return NextResponse.json({ error: "The source investigation has not completed." }, { status: 409 });
+    if (!['completed', 'incomplete'].includes(String(job?.stage)) || Number(job?.case_revision) !== currentRevision) {
+      return NextResponse.json({ error: "The source investigation report is not available for this case revision." }, { status: 409 });
     }
     if (!/^[0-9a-f-]{36}$/i.test(String(report.case_job_id || ""))
       || Number(job.case_revision) !== Number(report.based_on_revision)) {
       return NextResponse.json({ error: "The report is not bound to the completed Oracle investigation revision." }, { status: 409 });
     }
-    if (!meetsComprehensiveReportGate(String(report.content_markdown), snapshot)) {
+    if (!meetsComprehensiveReportGate(String(report.content_markdown), snapshot, model)) {
       return NextResponse.json({ error: "The report did not pass the comprehensive evidence and structure gate. Re-run or continue the investigation before downloading the PDF." }, { status: 409 });
     }
-    const pdf = await getOracleReportPdf(String(report.case_job_id), token, Number(report.based_on_revision));
+    if (draft) {
+      if (!["draft", "reviewed"].includes(String(report.status))) {
+        return NextResponse.json({ error: "Only a current draft or reviewed report can be opened as an internal draft PDF." }, { status: 409 });
+      }
+    } else {
+      if (report.status !== "finalized") {
+        return NextResponse.json({ error: "The final report is released automatically after independent review and artifact checks pass. Those checks are still pending." }, { status: 409 });
+      }
+      if (reportNeedsHold(String(report.summary || ""), String(report.content_markdown))) {
+        return NextResponse.json({ error: "The automated report pipeline did not complete. Its PDF cannot be released as final." }, { status: 409 });
+      }
+      if (!reportEligibleForFinalization(model)) {
+        return NextResponse.json({ error: "The canonical report snapshot or its evidence and critic gates could not be verified. Re-run the investigation before PDF release." }, { status: 409 });
+      }
+      if (job?.stage !== "completed") {
+        return NextResponse.json({ error: "The source investigation has not completed." }, { status: 409 });
+      }
+    }
+    const pdf = await getOracleReportPdf(String(report.case_job_id), token, Number(report.based_on_revision), draft);
     const filename = `Integritas - ${caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report"}.pdf`;
     return new NextResponse(pdf, {
       status: 200,
@@ -111,6 +114,7 @@ export async function GET(request: Request) {
         "cache-control": "no-store",
         "x-content-type-options": "nosniff",
         "x-integritas-source": "oracle-sealed-artifact",
+        "x-integritas-report-status": draft ? "draft-review-required" : "finalized",
       },
     });
   } catch (error) {

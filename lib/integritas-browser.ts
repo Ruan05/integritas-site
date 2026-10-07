@@ -1,5 +1,5 @@
 export const MAX_CASE_DOCUMENTS = 20;
-export const SUPPORTED_CASE_FILE_ACCEPT = '.pdf,.txt,.md,.csv';
+export const SUPPORTED_CASE_FILE_ACCEPT = '.pdf,.png,.jpg,.jpeg,.txt,.md,.csv';
 export const MAX_CASE_FILE_BYTES = 50 * 1024 * 1024;
 
 export function getIntegritasFunctionUrls(

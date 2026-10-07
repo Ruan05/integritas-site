@@ -128,7 +128,7 @@ async function crmRequest(body: Record<string, unknown>) {
 }
 
 async function uploadFile(caseId: string, file: File) {
-  const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : file.name.toLowerCase().endsWith(".csv") ? "text/csv" : file.name.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain");
+  const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : file.name.toLowerCase().endsWith(".png") ? "image/png" : /\.jpe?g$/i.test(file.name) ? "image/jpeg" : file.name.toLowerCase().endsWith(".csv") ? "text/csv" : file.name.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain");
   const safeName = file.name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80) || "document";
   const idempotencyKey = `crm:${caseId}:${safeName}:${file.size}:${file.lastModified}`.slice(0, 160);
   const reservationResponse = await crmRequest({
@@ -153,7 +153,7 @@ async function uploadFile(caseId: string, file: File) {
           objectName: String(reservationResponse.objectPath),
           contentType: mime,
         },
-        fingerprint: async () => [String(reservationResponse.reservationId), file.name, String(file.size), String(file.lastModified)],
+        fingerprint: async () => [String(reservationResponse.reservationId), file.name, String(file.size), String(file.lastModified)].join(":"),
         onError: reject,
         onSuccess: () => resolve(),
       });
@@ -308,6 +308,10 @@ export default function IntegritasAdminWorkspace() {
   const reportIncomplete = Boolean(reportMatchesCurrentJob && report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
   const modelEligible = reportEligibleForFinalization(verifiedModel);
   const reportFinalized = reportMatchesCurrentJob && report?.status === "finalized" && !reportIncomplete && modelEligible;
+  const reportDraftPdfReady = Boolean(reportMatchesCurrentJob && report
+    && ["draft", "reviewed"].includes(report.status)
+    && verifiedModel?.quality.report_structure === "maximum_depth_edd_28_v1_verified"
+    && job && committedPdfReady(job, snapshot));
   const stage = reportIncomplete
     ? STAGE_COPY.incomplete
     : reportFinalized
@@ -318,7 +322,7 @@ export default function IntegritasAdminWorkspace() {
           ? {
               label: "Oracle report requires review",
               note: modelEligible
-                ? "The comprehensive report is saved in the CRM from Oracle's verified report snapshot. Analyst review is still required."
+                ? "The report passed evidence and narrative review. Final PDF inspection and automatic release are pending."
                 : "Oracle saved a draft, but its evidence, critic or report-integrity gates are not verified. It cannot be marked complete or released as a final PDF.",
             }
           : job?.stage === "completed"
@@ -609,7 +613,7 @@ export default function IntegritasAdminWorkspace() {
           >
             <UploadCloud size={32} className="text-[#D4AF37]" aria-hidden="true" />
             <span className="mt-4 text-base font-medium text-[#EEE5D3]">Upload documents to investigate</span>
-            <span className="mt-2 text-xs leading-5 text-[#7F7871]">PDF, TXT, Markdown or CSV · up to 20 files · 50 MB per file</span>
+            <span className="mt-2 text-xs leading-5 text-[#7F7871]">PDF, PNG, JPEG, TXT, Markdown or CSV · up to 20 files · 50 MB per file</span>
           </button>
 
           {files.length ? (
@@ -721,7 +725,7 @@ export default function IntegritasAdminWorkspace() {
                     <p>Pre-report critic: {verifiedModel.quality.pre_report_critic}; final report critic: {verifiedModel.quality.final_report_critic}. Analyst review remains required.</p>
                   </div>
                 ) : <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">Legacy or unverified report snapshot. The report can be read as a draft; finalization and PDF release require a verified rerun.</p> : null}
-                {reportIncomplete ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">The investigation disposition is incomplete. Keep this report on hold until its open verification gates are resolved; PDF finalization is disabled.</p> : null}
+                {reportIncomplete ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">The report pipeline is incomplete. Its technical or review failures must be resolved before final PDF delivery. Authentication gates listed in a completed HOLD report can remain open.</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {reportMatchesCurrentJob && report.status === "draft" ? (
                     <button type="button" onClick={() => void runReportAction("review_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
@@ -740,6 +744,16 @@ export default function IntegritasAdminWorkspace() {
                       </a>
                       <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&download=1`} download className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
                         <Download size={14} /> Download report PDF
+                      </a>
+                    </>
+                  ) : null}
+                  {reportDraftPdfReady ? (
+                    <>
+                      <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&draft=1`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-white/15 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#C9C0B3] hover:border-[#D4AF37]/30 hover:text-[#E4C45F]">
+                        <FileText size={14} /> Open draft PDF
+                      </a>
+                      <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&draft=1&download=1`} download className="inline-flex h-11 items-center gap-2 border border-white/15 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#C9C0B3] hover:border-[#D4AF37]/30 hover:text-[#E4C45F]">
+                        <Download size={14} /> Download draft PDF
                       </a>
                     </>
                   ) : null}
