@@ -137,7 +137,7 @@ const PROCESS_STEPS = [
 const TEAM = [
   {
     name: "Johan Potgieter",
-    role: "Group Chairman",
+    role: "Executive Chairman",
     shortBio: "Johan brings extensive international experience in investment facilitation, strategic partnerships and project commercialization across energy, mining, ICT and agriculture.",
     bio: "Seasoned business development, project commercialization, and legal professional with extensive international experience across the agriculture, ICT, mining, energy, oil, and gas sectors. Formerly associated with South Africa’s Department of Justice, Parliament, CSIR, the UNDP, and a co-founder of a major internet company listed on both the JSE and Euronext Amsterdam. Recognized for expertise in investment facilitation, strategic partnerships, project commercialization, and cross-border project development, supported by a strong international network of investors, industry leaders, and government stakeholders.",
     photo: "/team/johan-v6.webp",
@@ -939,28 +939,29 @@ function TeamCard({
               {/* Contact details — fills remaining space evenly */}
               <div className="flex-1 min-h-0 py-4 px-5 flex flex-col items-center justify-evenly">
                 {member.phones.length > 0 && member.phones.map((p) => (
-                  <div key={p.label} className="flex items-center gap-2.5 text-[10px] sm:text-[11px]">
+                  <div key={p.label} className="bcard-contact-row text-[10px] sm:text-[11px]">
                     <IconPhone />
-                    <span className="text-[#8A857C] w-[52px] text-right flex-shrink-0 tracking-wide">{p.label}</span>
-                    <span className="text-[#F7F5F0]/90 tracking-wide">{p.number}</span>
+                    <span className="bcard-contact-label">{p.label}</span>
+                    <span className="bcard-contact-value">{p.number}</span>
                   </div>
                 ))}
-                <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px]">
+                <div className="bcard-contact-row text-[10px] sm:text-[11px]">
                   <IconMail />
-                  <span className="text-[#8A857C] w-[52px] text-right flex-shrink-0 tracking-wide">Email</span>
-                  <span className="text-[#F7F5F0]/90 tracking-wide">{member.email}</span>
+                  <span className="bcard-contact-label">Email</span>
+                  <span className="bcard-contact-value">{member.email}</span>
                 </div>
-                <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px]">
+                <div className="bcard-contact-row text-[10px] sm:text-[11px]">
                   <IconGlobe />
-                  <span className="text-[#8A857C] w-[52px] text-right flex-shrink-0 tracking-wide">Web</span>
-                  <span className="text-[#F7F5F0]/90 tracking-wide">www.integritass.com</span>
+                  <span className="bcard-contact-label">Web</span>
+                  <span className="bcard-contact-value">www.integritass.com</span>
                 </div>
                 <div className="gold-line-solid max-w-[80px] mx-auto !my-1"></div>
-                <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px]">
+                <div className="bcard-contact-row text-[10px] sm:text-[11px]">
                   <IconPin />
-                  <div className="text-[#F7F5F0]/90 leading-relaxed tracking-wide">
+                  <span className="bcard-contact-label">Address</span>
+                  <div className="bcard-contact-value leading-relaxed">
                     <p>94 Regency Drive, Route 21 Corporate Park</p>
-                    <p className="text-center">Irene, South Africa</p>
+                    <p>Irene, South Africa</p>
                   </div>
                 </div>
               </div>

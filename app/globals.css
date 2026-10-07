@@ -986,6 +986,28 @@
     flex-shrink: 0;
   }
 
+  .bcard-contact-row {
+    display: grid;
+    grid-template-columns: 18px 52px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .bcard-contact-label {
+    color: #8A857C;
+    text-align: right;
+    letter-spacing: 0.025em;
+  }
+
+  .bcard-contact-value {
+    min-width: 0;
+    color: rgba(247, 245, 240, 0.9);
+    letter-spacing: 0.025em;
+    overflow-wrap: anywhere;
+  }
+
   /* ─── Section subtle entrance lines ────────────────── */
   .section-glow-line {
     position: absolute;
