@@ -108,7 +108,7 @@ const STAGE_COPY: Record<string, { label: string; note: string }> = {
   independent_review: { label: "Independent review", note: "A separate review pass is challenging the draft findings." },
   drafting_report: { label: "Writing your report", note: "Building the final structured due-diligence report." },
   completed: { label: "Report ready", note: "The investigation completed and the report is archived." },
-  incomplete: { label: "Report needs review", note: "The investigation finished with unresolved items clearly marked." },
+  incomplete: { label: "Investigation incomplete", note: "Technical or report checks need recovery before a final report can be released." },
   failed: { label: "Investigation needs attention", note: "The run stopped before a final report could be produced." },
   cancelled: { label: "Investigation cancelled", note: "The run was cancelled." },
   paused: { label: "Investigation paused", note: "The worker stopped at a durable checkpoint. Continue to resume this investigation." },
@@ -320,7 +320,7 @@ export default function IntegritasAdminWorkspace() {
         ? STAGE_COPY[job.stage] ?? STAGE_COPY.queued
         : reportMatchesCurrentJob && report
           ? {
-              label: "Oracle report requires review",
+              label: modelEligible ? "Final report checks in progress" : "Report checks need recovery",
               note: modelEligible
                 ? "The report passed evidence and narrative review. Final PDF inspection and automatic release are pending."
                 : "Oracle saved a draft, but its evidence, critic or report-integrity gates are not verified. It cannot be marked complete or released as a final PDF.",
@@ -335,29 +335,9 @@ export default function IntegritasAdminWorkspace() {
   const canContinue = Boolean(
     !reportFinalized
       && job?.id
-      && ["failed", "incomplete", "cancelled", "paused", "research_limit_reached"].includes(job.stage)
-      && !committedPdfReady(job, snapshot),
+      && ["failed", "incomplete", "cancelled", "paused", "research_limit_reached"].includes(job.stage),
   );
   const canStop = Boolean(running && job?.id);
-
-  const runReportAction = async (action: "review_report" | "finalize_report") => {
-    if (!report?.id) return;
-    if (action === "finalize_report" && (!modelEligible || reportIncomplete)) {
-      setNotice("This report has not passed the verified evidence and critic gates. Keep it in analyst review.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await crmRequest({ action, reportId: report.id });
-      await loadCase(activeCaseId);
-      await refreshCases(activeCaseId);
-      setNotice(action === "review_report" ? "Report marked as reviewed." : "Report finalized. PDF download is now available.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const continueInvestigation = async () => {
     if (!job?.id || submitting) return;
@@ -720,23 +700,13 @@ export default function IntegritasAdminWorkspace() {
                 {!reportMatchesCurrentJob ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">Historical report from an earlier investigation or case revision. Run the current revision before review or PDF release.</p> : null}
                 {modelChecked ? verifiedModel ? (
                   <div className="mt-3 border border-[#D4AF37]/25 bg-[#D4AF37]/[0.05] px-3 py-2 text-xs leading-5 text-[#C9C0B3]">
-                    <p className="font-semibold text-[#E4C45F]">Verified report snapshot · {verifiedModel.disposition.replaceAll("_", " ")}</p>
+                    <p className="font-semibold text-[#E4C45F]">Verified report snapshot · {reportFinalized ? "final" : modelEligible ? "final release checks pending" : "draft — checks incomplete"}</p>
                     <p>{verifiedModel.counts.submitted_documents} submitted documents · {verifiedModel.counts.findings} findings · {verifiedModel.counts.sources} sources · {verifiedModel.counts.unresolved_gates} unresolved gates</p>
-                    <p>Pre-report critic: {verifiedModel.quality.pre_report_critic}; final report critic: {verifiedModel.quality.final_report_critic}. Analyst review remains required.</p>
+                    <p>Pre-report critic: {verifiedModel.quality.pre_report_critic}; final report critic: {verifiedModel.quality.final_report_critic}. {reportFinalized ? "Automatic release checks passed." : "Finalization is automatic when all review and PDF checks pass."}</p>
                   </div>
                 ) : <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">Legacy or unverified report snapshot. The report can be read as a draft; finalization and PDF release require a verified rerun.</p> : null}
                 {reportIncomplete ? <p className="mt-3 border border-[#B96F5C]/30 bg-[#B96F5C]/[0.06] px-3 py-2 text-xs leading-5 text-[#D9A597]">The report pipeline is incomplete. Its technical or review failures must be resolved before final PDF delivery. Authentication gates listed in a completed HOLD report can remain open.</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {reportMatchesCurrentJob && report.status === "draft" ? (
-                    <button type="button" onClick={() => void runReportAction("review_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
-                      Mark reviewed
-                    </button>
-                  ) : null}
-                  {reportMatchesCurrentJob && report.status === "reviewed" && !reportIncomplete && modelEligible ? (
-                    <button type="button" onClick={() => void runReportAction("finalize_report")} disabled={submitting} className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
-                      Finalize report
-                    </button>
-                  ) : null}
                   {reportFinalized ? (
                     <>
                       <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F] hover:bg-[#D4AF37]/10">
@@ -764,7 +734,7 @@ export default function IntegritasAdminWorkspace() {
                 <details className="mt-6 border-t border-[#D4AF37]/20 pt-5" open>
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-[#E4C45F]">Read complete web report</summary>
                   <p className="mt-3 border-l-2 border-[#D4AF37]/50 bg-[#D4AF37]/[0.05] px-4 py-3 text-xs leading-5 text-[#C9C0B3]">
-                    {reportFinalized ? "Finalized analyst report." : "Draft investigation report for analyst review. Unresolved verification gates are not transaction clearance."}
+                    {reportFinalized ? "Final report released after independent automated review. Apply its stated decision, limitations and authentication gates; finalization does not clear the transaction." : "Draft investigation report. Failed technical or review checks must be recovered before final release. Direct authentication gates are stated separately."}
                   </p>
                   <InvestigationReport content={report.content_markdown} />
                 </details>

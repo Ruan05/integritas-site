@@ -81,7 +81,9 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(workspace, /Upload and start investigation/);
   assert.match(workspace, /action: "start_case_investigation"/);
   assert.doesNotMatch(workspace, /isInvestigationRuntimeReady|runtime_status|Investigation service unavailable/);
-  assert.match(workspace, /Oracle report requires review/);
+  assert.match(workspace, /Final report checks in progress/);
+  assert.doesNotMatch(workspace, /Finalize report|Mark reviewed|Finalized analyst report\./);
+  assert.match(workspace, /Finalization is automatic when all review and PDF checks pass/);
   assert.match(workspace, /The report passed evidence and narrative review/);
   assert.match(workspace, /Number\(report\?\.based_on_revision\) === Number\(snapshot\?\.case\?\.revision\)/);
   assert.match(workspace, /Historical report from an earlier investigation or case revision/);
