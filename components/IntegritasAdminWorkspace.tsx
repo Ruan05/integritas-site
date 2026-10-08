@@ -70,7 +70,10 @@ type ReportRow = {
   report_model_sha256?: string;
 };
 
+type PreliminaryRow = { case_id: string; case_job_id: string; case_revision: number; sha256: string; created_at: string; safe_metadata?: { release_mode?: string; final?: boolean; issued_at?: string } };
+
 type Snapshot = {
+  preliminaryReports?: PreliminaryRow[];
   case?: CaseRow & Record<string, unknown>;
   documents?: Array<{ id: string; name: string; created_at: string }>;
   jobs?: JobRow[];
@@ -289,8 +292,13 @@ export default function IntegritasAdminWorkspace() {
     () => cases.find((item) => item.id === activeCaseId) ?? (snapshot?.case as CaseRow | undefined) ?? null,
     [cases, activeCaseId, snapshot],
   );
-  const job = newestJob(snapshot);
-  const report = newestReport(snapshot);
+  const currentSnapshot = snapshot?.case?.id === activeCaseId ? snapshot : null;
+  const job = newestJob(currentSnapshot);
+  const report = newestReport(currentSnapshot);
+  const preliminary = (currentSnapshot?.preliminaryReports ?? []).find(row =>
+    row.case_id === activeCaseId && row.case_job_id === job?.id
+    && row.case_revision === currentSnapshot?.case?.revision
+    && row.safe_metadata?.release_mode === "preliminary" && row.safe_metadata?.final === false);
   useEffect(() => {
     let live = true;
     setVerifiedModel(null);
@@ -455,6 +463,7 @@ export default function IntegritasAdminWorkspace() {
 
   useEffect(() => {
     if (!activeCaseId) return;
+    setSnapshot(null);
     let cancelled = false;
     crmRequest({ action: "snapshot", caseId: activeCaseId })
       .then((data) => { if (!cancelled) setSnapshot(data as Snapshot); })
@@ -692,6 +701,24 @@ export default function IntegritasAdminWorkspace() {
                 <p className="basis-full text-xs leading-5 text-[#7F7871]">Both controls stop only at a durable checkpoint. Pause is intended for later continuation; cancellation records the stop in the audit history.</p>
               </div>
             ) : null}
+
+
+            <div className="mt-6 grid gap-3 border-t border-[#D4AF37]/20 pt-5 sm:grid-cols-2">
+              <div className="border border-[#D4AF37]/25 bg-[#D4AF37]/[0.04] p-4">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-[#BDA76F]">Step 1 · Rapid assessment</p>
+                <p className="mt-2 text-sm text-[#EEE7DB]">{preliminary ? "Preliminary PDF ready" : "Preparing the preliminary PDF"}</p>
+                <p className="mt-2 text-xs leading-5 text-[#9D968F]">Early document-based findings and verification priorities. Public-source research and independent review are pending. This is not transaction clearance.</p>
+                {preliminary ? <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&stage=preliminary`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 border border-[#D4AF37]/40 px-3 text-xs text-[#E4C45F]"><FileText size={14} /> View preliminary PDF</a>
+                  <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&stage=preliminary&download=1`} download className="inline-flex h-10 items-center gap-2 border border-white/15 px-3 text-xs text-[#DDD4C6]"><Download size={14} /> Download preliminary</a>
+                </div> : null}
+              </div>
+              <div className="border border-white/10 p-4">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-[#BDA76F]">Step 2 · Comprehensive investigation</p>
+                <p className="mt-2 text-sm text-[#EEE7DB]">{reportFinalized ? "Final PDF ready" : running ? "Investigation continuing" : "Final report checks pending recovery"}</p>
+                <p className="mt-2 text-xs leading-5 text-[#9D968F]">The final report follows the same template and is released automatically after evidence, independent review and PDF checks pass.{reportFinalized ? " It supersedes the preliminary assessment." : " The preliminary PDF remains available while these checks are completed."}</p>
+              </div>
+            </div>
 
             {report?.content_markdown ? (
               <div className="mt-6 border-t border-white/8 pt-5">

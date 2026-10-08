@@ -19,11 +19,11 @@ function meetsComprehensiveReportGate(content: string, snapshot: Record<string, 
     && Array.isArray(snapshot.sources) && snapshot.sources.length > 0;
 }
 
-async function getOracleReportPdf(caseJobId: string, token: string, expectedRevision: number, draft: boolean) {
+async function getOracleReportPdf(caseJobId: string, token: string, expectedRevision: number, draft: boolean, preliminary = false) {
   const artifactResponse = await fetch(ADMIN_API, {
     method: "POST",
     headers: { "content-type": "application/json", "x-integritas-crm-token": token },
-    body: JSON.stringify({ action: "get_report_pdf", caseJobId, draft }),
+    body: JSON.stringify(preliminary ? { action: "get_preliminary_pdf", caseJobId } : { action: "get_report_pdf", caseJobId, draft }),
     cache: "no-store",
   });
   const artifact = await artifactResponse.json().catch(() => ({}));
@@ -70,6 +70,23 @@ export async function GET(request: Request) {
     const caseTitle = String(snapshot.case?.title || "Integritas investigation");
     const currentRevision = Number(snapshot.case?.revision);
     const draft = url.searchParams.get("draft") === "1";
+    if (url.searchParams.get("stage") === "preliminary") {
+      const job = (Array.isArray(snapshot.jobs) ? snapshot.jobs : [])
+        .filter((row: any) => row.runtime_provider === "openclaw-oracle")
+        .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+      if (!job || Number(job.case_revision) !== currentRevision)
+        return NextResponse.json({ error: "Current preliminary report is unavailable." }, { status: 409 });
+      const pdf = await getOracleReportPdf(job.id, token, currentRevision, false, true);
+      const name = caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report";
+      return new NextResponse(pdf, { status: 200, headers: {
+        "content-type": "application/pdf",
+        "content-disposition": `${disposition}; filename="Integritas - Preliminary - ${name}.pdf"`,
+        "cache-control": "no-store", "x-content-type-options": "nosniff",
+        "x-integritas-source": "oracle-preliminary-artifact",
+        "x-integritas-report-status": "preliminary-not-clearance",
+      } });
+    }
+
     if (!report?.content_markdown) return NextResponse.json({ error: "Report content is unavailable." }, { status: 409 });
     if (!Number.isSafeInteger(currentRevision) || Number(report.based_on_revision) !== currentRevision) {
       return NextResponse.json({ error: "This report belongs to an earlier case revision. Run the current investigation before PDF release." }, { status: 409 });
