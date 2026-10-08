@@ -233,12 +233,12 @@ function currentSubmodule(job: JobRow, snapshot: Snapshot | null) {
     .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
     .join(" · ");
   const route = [task?.provider, task?.model].filter((value): value is string => typeof value === "string" && Boolean(value.trim())).join(" / ");
-  const label = /ocr|extract/.test(stage) ? MILESTONES[0].label
+  const label = /ocr|extract|document_shards|visual_shard|document_review/.test(stage) ? MILESTONES[0].label
     : /route|plan/.test(stage) ? MILESTONES[1].label
     : /entity|normaliz|mapping|analys|analyz/.test(stage) ? MILESTONES[2].label
     : /research|lane|verif|cross_check/.test(stage) ? MILESTONES[3].label
     : /critic|independent|revision/.test(stage) ? MILESTONES[4].label
-    : /dossier|assembl|draft|synthes/.test(stage) ? MILESTONES[5].label
+    : /dossier|assembl|draft|synthes|sectioned_report|report_(?:group|section)/.test(stage) ? MILESTONES[5].label
     : /qa|quality/.test(stage) ? MILESTONES[6].label
     : /pdf|artifact|commit|publish|complet/.test(stage) ? MILESTONES[7].label
     : phase.replaceAll("_", " ");

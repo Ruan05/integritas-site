@@ -102,6 +102,20 @@ test("does not reuse a previous attempt checkpoint for the current PDF milestone
   assert.equal(milestoneStatus(7, job, snapshot), "blocked");
 });
 
+test("maps sharded document review and sectioned report writing to CRM milestones", async () => {
+  const { milestoneStatus } = await vite.ssrLoadModule("/components/IntegritasAdminWorkspace.tsx");
+  const job = { id: "job-1", stage: "drafting_report", current_attempt: 7 };
+  const snapshot = { checkpoints: [{
+    case_job_id: "job-1", attempt: 7, stage: "drafting_report",
+    safe_metadata: { phase: "large_sectioned_report" },
+  }] };
+  assert.equal(milestoneStatus(5, job, snapshot), "active");
+  assert.equal(milestoneStatus(6, job, snapshot), "waiting");
+  const reviewing = { ...job, stage: "extracting", checkpoint_metadata: { phase: "large_document_shards" } };
+  assert.equal(milestoneStatus(0, reviewing, null), "active");
+  assert.equal(milestoneStatus(1, reviewing, null), "waiting");
+});
+
 test("removes duplicated executive markdown from the CRM PDF renderer", async () => {
   const { createReportPdf } = await vite.ssrLoadModule("/lib/report-pdf.ts");
   const executive = [
