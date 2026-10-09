@@ -287,16 +287,6 @@ function Navigation() {
       <div className="max-w-7xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <CrmLogin />
-          <a href="#hero" className="flex items-center gap-3 group" onClick={() => setMobileOpen(false)}>
-            <Image
-              src="/brand/integritas-compact-mark.png"
-              alt="Integritas"
-              width={120}
-              height={120}
-              className="h-11 w-auto opacity-95 group-hover:opacity-100 transition-opacity"
-              priority
-            />
-          </a>
         </div>
 
         <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-7 lg:gap-9 text-[11px] tracking-[0.18em] uppercase text-[#A9A39A]">
