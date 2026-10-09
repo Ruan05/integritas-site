@@ -1410,7 +1410,7 @@ export default function HomePage() {
   useScrollReveal();
 
   return (
-    <div className="min-h-screen flex flex-col noise-overlay">
+    <div className="public-site min-h-screen flex flex-col noise-overlay">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <ScrollProgressBar />
       <Navigation />

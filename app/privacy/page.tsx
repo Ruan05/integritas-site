@@ -37,7 +37,7 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-[#0A0A0A] text-[#F7F5F0]">
+    <main className="public-site public-privacy min-h-screen bg-[#0A0A0A] text-[#F7F5F0]">
       <a href="#privacy-content" className="skip-link">Skip to privacy notice</a>
       <header className="border-b border-[#D4AF37]/15">
         <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-6">

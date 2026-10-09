@@ -3,6 +3,36 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Self-hosted brand faces keep the public typography consistent on every device. */
+@font-face {
+  font-family: "Integritas Display";
+  src: url("/fonts/cormorant-regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Integritas Display";
+  src: url("/fonts/cormorant-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Integritas Capitals";
+  src: url("/fonts/cinzel-regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Integritas Body";
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 @theme inline {
   --color-charcoal: #0A0A0A;
   --color-nearblack: #111111;
@@ -1250,4 +1280,119 @@
   .project-panel {
     padding: 24px 20px;
   }
+}
+
+/* Public brand typography: fine classical lettering with calm, readable copy.
+   This scope excludes the CRM, whose interface retains its existing styles. */
+.public-site {
+  font-family: "Integritas Body", Arial, sans-serif;
+  font-weight: 300;
+  font-synthesis: none;
+  color: #e8e1d4;
+}
+
+.public-site .font-sans,
+.public-site input,
+.public-site select,
+.public-site textarea {
+  font-family: "Integritas Body", Arial, sans-serif;
+}
+
+.public-site .font-serif,
+.public-site h1,
+.public-site h2,
+.public-site h3 {
+  font-family: "Integritas Display", Georgia, serif;
+  font-weight: 400;
+}
+
+.public-site h2 {
+  font-size: clamp(2.25rem, 4vw, 3.4rem);
+  line-height: 1.12;
+  letter-spacing: 0.015em;
+  text-wrap: balance;
+}
+
+.public-site h3 {
+  font-size: 1.6rem;
+  line-height: 1.22;
+  letter-spacing: 0.015em;
+  text-wrap: balance;
+}
+
+.public-site blockquote {
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.public-site p:not(.uppercase):not(.sr-only) {
+  line-height: 1.8;
+}
+
+.public-site p[class*="text-[#8A857C]"],
+.public-site p[class*="text-[#A9A39A]"] {
+  color: #aaa397;
+}
+
+.public-site .uppercase,
+.public-site .form-label,
+.public-site .editorial-link,
+.public-site .flip-btn,
+.public-site .privacy-choice-primary,
+.public-site .privacy-choice-secondary {
+  font-family: "Integritas Capitals", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+}
+
+.public-site h2.uppercase {
+  font-size: clamp(1.5rem, 2.7vw, 2.1rem);
+  line-height: 1.35;
+  letter-spacing: 0.08em;
+}
+
+.public-site h3.uppercase {
+  font-size: clamp(1.05rem, 1.5vw, 1.2rem);
+  line-height: 1.4;
+  letter-spacing: 0.09em;
+}
+
+.public-site .service-card {
+  border-color: rgba(197, 164, 110, 0.2);
+}
+
+.public-site .service-card:hover {
+  border-color: rgba(197, 164, 110, 0.42);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 38px -20px rgba(0, 0, 0, 0.65);
+}
+
+.public-site .btn-primary,
+.public-site .editorial-link {
+  color: #d4b77b;
+  border-color: rgba(212, 183, 123, 0.45);
+}
+
+.public-site .btn-primary:hover {
+  color: #0a0a0a;
+  box-shadow: 0 8px 28px -16px rgba(212, 183, 123, 0.3);
+}
+
+.public-site .privacy-choices p {
+  line-height: 1.55;
+}
+
+.public-privacy h1 {
+  font-size: clamp(3rem, 6vw, 4.5rem);
+  font-weight: 400;
+}
+
+.public-privacy h2,
+.public-site .team-bio-dialog h2 {
+  font-size: 1.8rem;
+  line-height: 1.25;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-site .service-card:hover { transform: none; }
 }
