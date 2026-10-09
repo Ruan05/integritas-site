@@ -472,9 +472,10 @@ export default function IntegritasAdminWorkspace() {
   }, [activeCaseId]);
 
   useEffect(() => {
-    if (!activeCaseId || !running) return;
+    if (!activeCaseId) return;
     let cancelled = false;
     const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
       try {
         const data = await crmRequest({ action: "snapshot", caseId: activeCaseId });
         if (!cancelled) {
@@ -488,8 +489,18 @@ export default function IntegritasAdminWorkspace() {
         if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
       }
     };
-    const timer = window.setInterval(refresh, 5000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    // A case can be resumed from Oracle or another CRM session. Keep a slower
+    // visible-page refresh for stopped cases so that retry becomes observable.
+    const timer = window.setInterval(refresh, running ? 5000 : 15000);
+    const refreshOnFocus = () => { void refresh(); };
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
   }, [activeCaseId, running]);
 
   const chooseFiles = (next: File[]) => {
