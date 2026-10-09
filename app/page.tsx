@@ -846,7 +846,7 @@ function TeamCard({
               {/* Brand header */}
               <div className="flex-shrink-0 pt-5 pb-2 px-5 text-center">
                 <div className="flex justify-center mb-1">
-                  <Image src="/brand/integritas-scales.svg" alt="Integritas" width={512} height={512} className="h-7 w-7 opacity-80" />
+                  <Image src="/brand/integritas-lady-justice.webp" alt="Integritas" width={512} height={512} className="brand-emblem h-10 w-10" />
                 </div>
                 <p className="font-serif text-sm sm:text-base tracking-[0.15em] uppercase text-[#D4AF37]">Integritas</p>
                 <p className="text-[7px] sm:text-[8px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
@@ -887,7 +887,7 @@ function TeamCard({
               {/* Brand header */}
               <div className="flex-shrink-0 pt-3 pb-1.5 px-5 text-center">
                 <div className="flex justify-center mb-0.5">
-                  <Image src="/brand/integritas-scales.svg" alt="Integritas" width={512} height={512} className="h-5 w-5 opacity-70" />
+                  <Image src="/brand/integritas-lady-justice.webp" alt="Integritas" width={512} height={512} className="brand-emblem h-7 w-7" />
                 </div>
                 <p className="bcard-gold-text font-serif text-[11px] tracking-[0.18em] uppercase">Integritas</p>
                 <p className="text-[6px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
@@ -1061,11 +1061,11 @@ function ContactSection() {
             <div className="pt-6 pb-5 px-8 text-center">
               <div className="flex justify-center mb-2">
                 <Image
-                  src="/brand/integritas-scales.svg"
+                  src="/brand/integritas-lady-justice.webp"
                   alt="Integritas"
                   width={40}
                   height={40}
-                  className="h-8 w-auto opacity-70"
+                  className="brand-emblem h-14 w-14"
                 />
               </div>
               <p className="font-serif text-xl sm:text-2xl tracking-[0.15em] uppercase text-[#D4AF37]">
@@ -1319,11 +1319,11 @@ function Footer() {
         {/* Brand identity row */}
         <div className="flex flex-col items-center mb-8">
           <Image
-            src="/brand/integritas-scales.svg"
+            src="/brand/integritas-lady-justice.webp"
             alt="Integritas"
             width={100}
             height={100}
-            className="h-10 w-auto opacity-70 mb-3"
+            className="brand-emblem h-14 w-14 mb-3"
           />
           <p className="font-serif text-sm tracking-[0.15em] uppercase text-[#D4AF37]/60">
             Integritas

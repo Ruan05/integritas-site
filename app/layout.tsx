@@ -38,8 +38,8 @@ export const metadata: Metadata = {
   publisher: "Integritas",
   alternates: { canonical: "/" },
   icons: {
-    icon: [{ url: "/brand/integritas-scales.svg", type: "image/svg+xml", sizes: "any" }],
-    apple: [{ url: "/brand/integritas-scales-512.png", sizes: "512x512" }],
+    icon: [{ url: "/brand/integritas-lady-justice-192.png", type: "image/png", sizes: "192x192" }],
+    apple: [{ url: "/brand/integritas-lady-justice-512.png", sizes: "512x512" }],
   },
   openGraph: {
     title: "Integritas | Integrity in every cross-border decision",
@@ -70,7 +70,7 @@ const structuredData = {
   name: "Integritas",
   description: "Cross-border legal, commercial and project-management consulting.",
   url: siteUrl,
-  logo: `${siteUrl}/brand/integritas-scales-512.png`,
+  logo: `${siteUrl}/brand/integritas-lady-justice-512.png`,
   email: "info@integritass.com",
   telephone: "+27 61 502 6507",
   address: {

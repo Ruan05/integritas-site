@@ -1291,6 +1291,11 @@
   color: #e8e1d4;
 }
 
+.public-site .brand-emblem {
+  object-fit: contain;
+  mix-blend-mode: screen;
+}
+
 .public-site .font-sans,
 .public-site input,
 .public-site select,
