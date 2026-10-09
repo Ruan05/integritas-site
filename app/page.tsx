@@ -846,7 +846,7 @@ function TeamCard({
               {/* Brand header */}
               <div className="flex-shrink-0 pt-5 pb-2 px-5 text-center">
                 <div className="flex justify-center mb-1">
-                  <Image src="/brand/integritas-compact-mark.png" alt="Integritas" width={512} height={512} className="h-7 w-7 opacity-80" />
+                  <Image src="/brand/integritas-scales.svg" alt="Integritas" width={512} height={512} className="h-7 w-7 opacity-80" />
                 </div>
                 <p className="font-serif text-sm sm:text-base tracking-[0.15em] uppercase text-[#D4AF37]">Integritas</p>
                 <p className="text-[7px] sm:text-[8px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
@@ -887,7 +887,7 @@ function TeamCard({
               {/* Brand header */}
               <div className="flex-shrink-0 pt-3 pb-1.5 px-5 text-center">
                 <div className="flex justify-center mb-0.5">
-                  <Image src="/brand/integritas-compact-mark.png" alt="Integritas" width={512} height={512} className="h-5 w-5 opacity-70" />
+                  <Image src="/brand/integritas-scales.svg" alt="Integritas" width={512} height={512} className="h-5 w-5 opacity-70" />
                 </div>
                 <p className="bcard-gold-text font-serif text-[11px] tracking-[0.18em] uppercase">Integritas</p>
                 <p className="text-[6px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
@@ -1061,7 +1061,7 @@ function ContactSection() {
             <div className="pt-6 pb-5 px-8 text-center">
               <div className="flex justify-center mb-2">
                 <Image
-                  src="/brand/integritas-compact-mark.png"
+                  src="/brand/integritas-scales.svg"
                   alt="Integritas"
                   width={40}
                   height={40}
@@ -1319,7 +1319,7 @@ function Footer() {
         {/* Brand identity row */}
         <div className="flex flex-col items-center mb-8">
           <Image
-            src="/brand/integritas-compact-mark.png"
+            src="/brand/integritas-scales.svg"
             alt="Integritas"
             width={100}
             height={100}
