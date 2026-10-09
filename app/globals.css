@@ -658,8 +658,8 @@
   /* The artwork remains still; the halo and a few glints animate once on entry. */
   .hero-logo-cinematic {
     position: relative;
-    width: min(100%, 620px);
-    aspect-ratio: 1254 / 860;
+    width: min(100vw, 760px);
+    aspect-ratio: 1;
     background: transparent;
   }
 

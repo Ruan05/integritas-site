@@ -425,11 +425,11 @@ function HeroSection() {
           <figure className="m-0 w-full flex flex-col items-center">
             <div className="hero-logo-cinematic">
               <Image
-                src="/brand/integritas-hero-cutout-v2.webp"
-                alt="Integritas gold artwork: Lady Justice stands within a halo, holding the scales and sword."
+                src="/brand/integritas-primary-artwork.webp"
+                alt="Integritas gold artwork of Lady Justice with the scales and sword, framed by a radiant halo."
                 width={1254}
-                height={860}
-                sizes="(max-width: 639px) 92vw, (max-width: 1023px) 62vw, 620px"
+                height={1254}
+                sizes="(max-width: 639px) 100vw, (max-width: 1023px) 76vw, 760px"
                 className="hero-logo-image"
                 priority
               />
@@ -443,16 +443,12 @@ function HeroSection() {
           </figure>
         </div>
 
-        <p className="hero-cascade-1 text-[10px] sm:text-[11px] tracking-[0.3em] uppercase text-[#D4AF37]/70 mb-8">
+        <p className="sr-only">
           Legal &bull; Compliance &bull; Investment &bull; Business Consulting
         </p>
 
-        <h1 className="hero-cascade-2 font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.08] tracking-tight mb-7">
-          Integrity in every
-          <br />
-          <span className="hero-shimmer-text italic">
-            cross-border decision.
-          </span>
+        <h1 className="sr-only">
+          Integrity in every cross-border decision.
         </h1>
 
         <div className="hero-cascade-3 diamond-separator max-w-[80px] mx-auto mb-6">

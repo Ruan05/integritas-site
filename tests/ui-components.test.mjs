@@ -51,8 +51,9 @@ test("emits the static brand artwork with a brief automatic halo and reduced-mot
   assert.match(css, /flip-card-inner/);
   assert.match(css, /backface-visibility:\s*hidden/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.match(page, /integritas-hero-cutout-v2\.webp/);
-  assert.match(page, /INTEGRITAS\. INTEGRITY • GOVERNANCE • EXCELLENCE\./);
+  assert.match(page, /integritas-primary-artwork\.webp/);
+  assert.match(page, /Legal &bull; Compliance &bull; Investment &bull; Business Consulting/);
+  assert.match(page, /Integrity in every cross-border decision\./);
   assert.doesNotMatch(page, /hero-motion-control|Play motion|Pause motion|logoMotionPaused/);
   assert.doesNotMatch(css, /hero-motion-control|\.hero-logo-cinematic\.motion-paused/);
   assert.doesNotMatch(css, /cinematicFigure|cinematicSettle/);
