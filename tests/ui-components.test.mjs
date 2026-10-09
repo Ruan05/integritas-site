@@ -36,16 +36,26 @@ async function readCssTree(directory) {
   return contents.join("\n");
 }
 
-test("emits the cinematic, card and reduced-motion safeguards", async () => {
-  const css = await readCssTree(path.join(root, "dist"));
+test("emits the static brand artwork with a brief automatic halo and reduced-motion safeguards", async () => {
+  const [css, page] = await Promise.all([
+    readCssTree(path.join(root, "dist")),
+    readFile(path.join(root, "app/page.tsx"), "utf8"),
+  ]);
 
   assert.match(css, /hero-logo-cinematic/);
-  assert.match(css, /cinematicFigure/);
-  assert.match(css, /cinematicSettle/);
+  assert.match(css, /haloBreath/);
+  assert.match(css, /quietGlint/);
+  assert.match(css, /animation:4\.8s ease-in-out both haloBreath/);
+  assert.match(css, /animation:1\.6s ease-in-out both quietGlint/);
   assert.match(css, /hero-cascade-5/);
   assert.match(css, /flip-card-inner/);
   assert.match(css, /backface-visibility:\s*hidden/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(page, /integritas-hero-cutout-v2\.webp/);
+  assert.match(page, /INTEGRITAS\. INTEGRITY • GOVERNANCE • EXCELLENCE\./);
+  assert.doesNotMatch(page, /hero-motion-control|Play motion|Pause motion|logoMotionPaused/);
+  assert.doesNotMatch(css, /hero-motion-control|\.hero-logo-cinematic\.motion-paused/);
+  assert.doesNotMatch(css, /cinematicFigure|cinematicSettle/);
 });
 
 test("forwards progress semantics to the primitive", async () => {

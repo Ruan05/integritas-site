@@ -42,7 +42,7 @@ export default function PrivacyPage() {
       <header className="border-b border-[#D4AF37]/15">
         <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-6">
           <Link href="/" aria-label="Integritas home" className="flex items-center gap-3">
-            <Image src="/icononly_transparent.png" alt="" width={48} height={48} className="h-10 w-auto" />
+            <Image src="/brand/integritas-compact-mark.png" alt="" width={512} height={512} className="h-10 w-10" />
             <span className="font-serif tracking-[0.14em] uppercase text-[#D4AF37]">Integritas</span>
           </Link>
           <Link href="/#contact" className="editorial-link">Contact <span aria-hidden="true">↗</span></Link>

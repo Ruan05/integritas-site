@@ -289,7 +289,7 @@ function Navigation() {
           <CrmLogin />
           <a href="#hero" className="flex items-center gap-3 group" onClick={() => setMobileOpen(false)}>
             <Image
-              src="/icononly_transparent.png"
+              src="/brand/integritas-compact-mark.png"
               alt="Integritas"
               width={120}
               height={120}
@@ -432,42 +432,25 @@ function HeroSection() {
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center pt-20">
         <div className="mb-8 flex justify-center">
-          <div className="hero-logo-cinematic">
-            <div className="hero-logo-ambient-glow" aria-hidden="true" />
-            <div className="hero-logo-orbit hero-logo-orbit-one" aria-hidden="true" />
-            <div className="hero-logo-orbit hero-logo-orbit-two" aria-hidden="true" />
-            <div className="hero-logo-spark" aria-hidden="true" />
-            <Image
-              src="/logo-hero.png"
-              alt=""
-              width={320}
-              height={320}
-              className="hero-logo-figure"
-              priority
-              unoptimized
-              aria-hidden="true"
-            />
-            <Image
-              src="/logo-hero.png"
-              alt=""
-              width={320}
-              height={320}
-              className="hero-logo-wordmark"
-              priority
-              unoptimized
-              aria-hidden="true"
-            />
-            <Image
-              src="/logo-hero.png"
-              alt="Integritas — Integrity, Governance, Excellence"
-              width={320}
-              height={320}
-              className="hero-logo-settled"
-              priority
-              unoptimized
-            />
-            <div className="hero-logo-light-sweep" aria-hidden="true" />
-          </div>
+          <figure className="m-0 w-full flex flex-col items-center">
+            <div className="hero-logo-cinematic">
+              <Image
+                src="/brand/integritas-hero-cutout-v2.webp"
+                alt="Integritas gold artwork: Lady Justice stands within a halo, holding the scales and sword."
+                width={1254}
+                height={860}
+                sizes="(max-width: 639px) 92vw, (max-width: 1023px) 62vw, 620px"
+                className="hero-logo-image"
+                priority
+              />
+              <span className="hero-logo-glint hero-logo-glint-one" aria-hidden="true" />
+              <span className="hero-logo-glint hero-logo-glint-two" aria-hidden="true" />
+              <span className="hero-logo-glint hero-logo-glint-three" aria-hidden="true" />
+            </div>
+            <p className="sr-only">
+              INTEGRITAS. INTEGRITY • GOVERNANCE • EXCELLENCE.
+            </p>
+          </figure>
         </div>
 
         <p className="hero-cascade-1 text-[10px] sm:text-[11px] tracking-[0.3em] uppercase text-[#D4AF37]/70 mb-8">
@@ -877,7 +860,7 @@ function TeamCard({
               {/* Brand header */}
               <div className="flex-shrink-0 pt-5 pb-2 px-5 text-center">
                 <div className="flex justify-center mb-1">
-                  <Image src="/icononly_transparent.png" alt="Integritas" width={40} height={40} className="h-7 w-auto opacity-80" />
+                  <Image src="/brand/integritas-compact-mark.png" alt="Integritas" width={512} height={512} className="h-7 w-7 opacity-80" />
                 </div>
                 <p className="font-serif text-sm sm:text-base tracking-[0.15em] uppercase text-[#D4AF37]">Integritas</p>
                 <p className="text-[7px] sm:text-[8px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
@@ -918,7 +901,7 @@ function TeamCard({
               {/* Brand header */}
               <div className="flex-shrink-0 pt-3 pb-1.5 px-5 text-center">
                 <div className="flex justify-center mb-0.5">
-                  <Image src="/icononly_transparent.png" alt="Integritas" width={28} height={28} className="h-5 w-auto opacity-70" />
+                  <Image src="/brand/integritas-compact-mark.png" alt="Integritas" width={512} height={512} className="h-5 w-5 opacity-70" />
                 </div>
                 <p className="bcard-gold-text font-serif text-[11px] tracking-[0.18em] uppercase">Integritas</p>
                 <p className="text-[6px] tracking-[0.2em] uppercase text-[#8A857C] mt-0.5">Legal &bull; Compliance &bull; Investment &bull; Business Consulting</p>
@@ -1092,7 +1075,7 @@ function ContactSection() {
             <div className="pt-6 pb-5 px-8 text-center">
               <div className="flex justify-center mb-2">
                 <Image
-                  src="/icononly_transparent.png"
+                  src="/brand/integritas-compact-mark.png"
                   alt="Integritas"
                   width={40}
                   height={40}
@@ -1350,7 +1333,7 @@ function Footer() {
         {/* Brand identity row */}
         <div className="flex flex-col items-center mb-8">
           <Image
-            src="/icononly_transparent.png"
+            src="/brand/integritas-compact-mark.png"
             alt="Integritas"
             width={100}
             height={100}
