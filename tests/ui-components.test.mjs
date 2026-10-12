@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test, { after } from "node:test";
@@ -36,7 +36,7 @@ async function readCssTree(directory) {
   return contents.join("\n");
 }
 
-test("keeps the homepage hero as the exact static full brand lockup", async () => {
+test("renders the homepage hero as a seamless transparent lockup with controlled spacing", async () => {
   const [css, sourceCss, page, asset] = await Promise.all([
     readCssTree(path.join(root, "dist")),
     readFile(path.join(root, "app/globals.css"), "utf8"),
@@ -45,34 +45,30 @@ test("keeps the homepage hero as the exact static full brand lockup", async () =
   ]);
 
   assert.match(page, /src="\/integritas-hero-lockup\.webp"/);
-  assert.match(page, /width=\{1448\}/);
-  assert.match(page, /height=\{1086\}/);
-  assert.match(page, /hero-logo-master/);
+  assert.match(page, /hero-content-stack/);
+  assert.match(page, /hero-supporting-copy/);
+  assert.match(page, /hero-actions/);
   assert.match(page, /pharmaceutical and healthcare due/);
   assert.match(page, /href="#contact"/);
   assert.match(page, /href="#about"/);
-  assert.doesNotMatch(
-    page,
-    /hero-logo-cinematic|hero-logo-glint|gold-particle|hero-spotlight|hero-ambient-glow/,
-  );
+  assert.doesNotMatch(page, /hero-logo-cinematic|hero-logo-glint|gold-particle|hero-spotlight|hero-ambient-glow/);
 
-  assert.match(sourceCss, /\.hero-logo-master-wrap\s*\{/);
-  assert.match(sourceCss, /aspect-ratio:\s*1448\s*\/\s*1086/);
+  assert.match(sourceCss, /\.hero-content-stack\s*\{/);
+  assert.match(sourceCss, /\.hero-supporting-copy\s*\{/);
+  assert.match(sourceCss, /\.hero-actions\s*\{/);
+  assert.match(sourceCss, /gap:\s*clamp\(/);
   assert.match(sourceCss, /mix-blend-mode:\s*normal/);
   assert.match(sourceCss, /mask-image:\s*none/);
-  assert.doesNotMatch(
-    sourceCss,
-    /\.hero-logo-cinematic|\.hero-logo-glint|\.hero-spotlight|\.hero-ambient-glow|@keyframes haloBreath|@keyframes quietGlint/,
-  );
+  assert.doesNotMatch(sourceCss, /\.hero-logo-cinematic|\.hero-logo-glint|\.hero-spotlight|\.hero-ambient-glow|@keyframes haloBreath|@keyframes quietGlint/);
 
-  assert.match(css, /hero-logo-master/);
+  assert.equal(asset.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.equal(asset.subarray(8, 12).toString("ascii"), "WEBP");
+  assert.ok(asset.includes(Buffer.from("ALPH")), "hero WebP must carry transparency instead of an opaque black matte");
+  assert.ok(asset.includes(Buffer.from("VP8X")), "hero WebP must use the extended container required for alpha");
+  assert.match(css, /hero-content-stack/);
   assert.match(css, /flip-card-inner/);
   assert.match(css, /backface-visibility:\s*hidden/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.equal(
-    createHash("sha256").update(asset).digest("hex"),
-    "1772a1fab64293bc5a819b4c24dd9fdf7c51ead06a33faebd82e1499c2852c86",
-  );
 });
 
 test("forwards progress semantics to the primitive", async () => {

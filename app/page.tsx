@@ -370,7 +370,7 @@ function HeroSection() {
       id="hero"
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-3 sm:px-6 text-center py-24 sm:py-28">
+      <div className="hero-content-stack relative z-10 w-full max-w-5xl mx-auto px-3 sm:px-6 text-center py-24 sm:py-28">
         <figure className="m-0 w-full flex flex-col items-center">
           <div className="hero-logo-master-wrap">
             <Image
@@ -390,13 +390,13 @@ function HeroSection() {
           <h1 className="sr-only">Integrity in every cross-border decision.</h1>
         </figure>
 
-        <p className="max-w-xl mx-auto text-base md:text-lg text-[#8A857C] font-light leading-relaxed mt-8 sm:mt-10 mb-10">
+        <p className="hero-supporting-copy max-w-xl mx-auto text-base md:text-lg text-[#8A857C] font-light leading-relaxed">
           Cross-border compliance and international business counsel across
           trade, contracts and energy, with pharmaceutical and healthcare due
           diligence and regulatory support.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
+        <div className="hero-actions flex flex-col sm:flex-row items-center justify-center">
           <a
             href="#contact"
             className="btn-primary gold-glisten inline-flex px-10 py-4 text-[11px] tracking-[0.2em] uppercase"
