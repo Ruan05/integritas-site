@@ -365,103 +365,38 @@ function Navigation() {
 // ═══════════════════════════════════════════════════════════════════
 
 function HeroSection() {
-  const spotlightRef = useRef<HTMLDivElement>(null);
-  const heroSectionRef = useRef<HTMLElement>(null);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const el = spotlightRef.current;
-    if (!el) return;
-    const rect = el.parentElement?.getBoundingClientRect();
-    if (!rect) return;
-    el.style.left = `${e.clientX - rect.left}px`;
-    el.style.top = `${e.clientY - rect.top}px`;
-  }, []);
-
   return (
     <section
-      ref={heroSectionRef}
       id="hero"
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
-      onMouseMove={handleMouseMove}
     >
-      {/* ═══ Subtle ambient gold glow ═══ */}
-      <div
-        className="absolute inset-0 opacity-[0.04] hero-ambient-glow"
-        style={{
-          backgroundImage:
-            "radial-gradient(ellipse at 30% 20%, #D4AF37 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, #D4AF37 0%, transparent 40%)",
-        }}
-      />
-      <div ref={spotlightRef} className="hero-spotlight" />
+      <div className="relative z-10 w-full max-w-5xl mx-auto px-3 sm:px-6 text-center py-24 sm:py-28">
+        <figure className="m-0 w-full flex flex-col items-center">
+          <div className="hero-logo-master-wrap">
+            <Image
+              src="/integritas-hero-lockup.webp"
+              alt="Integritas brand lockup featuring Lady Justice."
+              width={1448}
+              height={1086}
+              className="hero-logo-master"
+              priority
+              unoptimized
+            />
+          </div>
+          <p className="sr-only">
+            INTEGRITAS. INTEGRITY • GOVERNANCE • EXCELLENCE. Legal • Compliance
+            • Investment • Business Consulting.
+          </p>
+          <h1 className="sr-only">Integrity in every cross-border decision.</h1>
+        </figure>
 
-      {/* Restrained atmospheric detail */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[
-          { top: "10%", left: "15%", delay: "0s", size: 3 },
-          { top: "18%", left: "82%", delay: "1.2s", size: 2 },
-          { top: "35%", left: "6%", delay: "2.8s", size: 3 },
-          { top: "45%", left: "92%", delay: "0.6s", size: 2 },
-          { top: "65%", left: "10%", delay: "3.2s", size: 3 },
-          { top: "75%", left: "85%", delay: "1.8s", size: 2 },
-          { top: "20%", left: "45%", delay: "4.2s", size: 2 },
-        ].map((p, i) => (
-          <div
-            key={i}
-            className="gold-particle"
-            style={{
-              top: p.top,
-              left: p.left,
-              width: `${p.size}px`,
-              height: `${p.size}px`,
-              animationDelay: p.delay,
-              animationDuration: `${3.4 + (i % 4) * 0.35}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center pt-20">
-        <div className="mb-8 flex justify-center">
-          <figure className="m-0 w-full flex flex-col items-center">
-            <div className="hero-logo-cinematic">
-              <Image
-                src="/brand/integritas-primary-artwork.webp"
-                alt="Integritas gold artwork of Lady Justice with the scales and sword, framed by a radiant halo."
-                width={1254}
-                height={1254}
-                sizes="(max-width: 639px) 100vw, (max-width: 1023px) 76vw, 760px"
-                className="hero-logo-image"
-                priority
-              />
-              <span className="hero-logo-glint hero-logo-glint-one" aria-hidden="true" />
-              <span className="hero-logo-glint hero-logo-glint-two" aria-hidden="true" />
-              <span className="hero-logo-glint hero-logo-glint-three" aria-hidden="true" />
-            </div>
-            <p className="sr-only">
-              INTEGRITAS. INTEGRITY • GOVERNANCE • EXCELLENCE.
-            </p>
-          </figure>
-        </div>
-
-        <p className="sr-only">
-          Legal &bull; Compliance &bull; Investment &bull; Business Consulting
-        </p>
-
-        <h1 className="sr-only">
-          Integrity in every cross-border decision.
-        </h1>
-
-        <div className="hero-cascade-3 diamond-separator max-w-[80px] mx-auto mb-6">
-          <span className="diamond" />
-        </div>
-
-        <p className="hero-cascade-4 max-w-xl mx-auto text-base md:text-lg text-[#8A857C] font-light leading-relaxed mb-10">
+        <p className="max-w-xl mx-auto text-base md:text-lg text-[#8A857C] font-light leading-relaxed mt-8 sm:mt-10 mb-10">
           Cross-border compliance and international business counsel across
           trade, contracts and energy, with pharmaceutical and healthcare due
           diligence and regulatory support.
         </p>
 
-        <div className="hero-cascade-5 flex flex-col sm:flex-row items-center justify-center gap-5">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
           <a
             href="#contact"
             className="btn-primary gold-glisten inline-flex px-10 py-4 text-[11px] tracking-[0.2em] uppercase"

@@ -36,27 +36,43 @@ async function readCssTree(directory) {
   return contents.join("\n");
 }
 
-test("emits the static brand artwork with a brief automatic halo and reduced-motion safeguards", async () => {
-  const [css, page] = await Promise.all([
+test("keeps the homepage hero as the exact static full brand lockup", async () => {
+  const [css, sourceCss, page, asset] = await Promise.all([
     readCssTree(path.join(root, "dist")),
+    readFile(path.join(root, "app/globals.css"), "utf8"),
     readFile(path.join(root, "app/page.tsx"), "utf8"),
+    readFile(path.join(root, "public/integritas-hero-lockup.webp")),
   ]);
 
-  assert.match(css, /hero-logo-cinematic/);
-  assert.match(css, /haloBreath/);
-  assert.match(css, /quietGlint/);
-  assert.match(css, /animation:4\.8s ease-in-out both haloBreath/);
-  assert.match(css, /animation:1\.6s ease-in-out both quietGlint/);
-  assert.match(css, /hero-cascade-5/);
+  assert.match(page, /src="\/integritas-hero-lockup\.webp"/);
+  assert.match(page, /width=\{1448\}/);
+  assert.match(page, /height=\{1086\}/);
+  assert.match(page, /hero-logo-master/);
+  assert.match(page, /pharmaceutical and healthcare due/);
+  assert.match(page, /href="#contact"/);
+  assert.match(page, /href="#about"/);
+  assert.doesNotMatch(
+    page,
+    /hero-logo-cinematic|hero-logo-glint|gold-particle|hero-spotlight|hero-ambient-glow/,
+  );
+
+  assert.match(sourceCss, /\.hero-logo-master-wrap\s*\{/);
+  assert.match(sourceCss, /aspect-ratio:\s*1448\s*\/\s*1086/);
+  assert.match(sourceCss, /mix-blend-mode:\s*normal/);
+  assert.match(sourceCss, /mask-image:\s*none/);
+  assert.doesNotMatch(
+    sourceCss,
+    /\.hero-logo-cinematic|\.hero-logo-glint|\.hero-spotlight|\.hero-ambient-glow|@keyframes haloBreath|@keyframes quietGlint/,
+  );
+
+  assert.match(css, /hero-logo-master/);
   assert.match(css, /flip-card-inner/);
   assert.match(css, /backface-visibility:\s*hidden/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.match(page, /integritas-primary-artwork\.webp/);
-  assert.match(page, /Legal &bull; Compliance &bull; Investment &bull; Business Consulting/);
-  assert.match(page, /Integrity in every cross-border decision\./);
-  assert.doesNotMatch(page, /hero-motion-control|Play motion|Pause motion|logoMotionPaused/);
-  assert.doesNotMatch(css, /hero-motion-control|\.hero-logo-cinematic\.motion-paused/);
-  assert.doesNotMatch(css, /cinematicFigure|cinematicSettle/);
+  assert.equal(
+    createHash("sha256").update(asset).digest("hex"),
+    "1772a1fab64293bc5a819b4c24dd9fdf7c51ead06a33faebd82e1499c2852c86",
+  );
 });
 
 test("forwards progress semantics to the primitive", async () => {
