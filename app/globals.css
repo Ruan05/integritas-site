@@ -1133,13 +1133,29 @@
 .flip-card {
   perspective: 1200px;
   position: relative;
-  height: 540px;
+  height: 590px;
   isolation: isolate;
 }
 
 @media (max-width: 767px) {
   .flip-card {
-    height: 500px;
+    height: 520px;
+  }
+}
+
+/* Tablet and compact desktop widths need more vertical room after the team
+   grid shifts from one column to two and then three columns. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .flip-card {
+    height: 600px;
+  }
+}
+
+/* Narrow phones wrap the card CTAs onto two rows. Give the front face
+   enough vertical room so a multi-line bio stays clear of those controls. */
+@media (max-width: 374px) {
+  .flip-card {
+    height: 560px;
   }
 }
 
