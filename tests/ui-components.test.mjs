@@ -41,10 +41,11 @@ test("renders the homepage hero as a seamless transparent lockup with controlled
     readCssTree(path.join(root, "dist")),
     readFile(path.join(root, "app/globals.css"), "utf8"),
     readFile(path.join(root, "app/page.tsx"), "utf8"),
-    readFile(path.join(root, "public/integritas-hero-lockup.webp")),
+    readFile(path.join(root, "public/integritas-hero-lockup-eb2a6af5.webp")),
   ]);
 
-  assert.match(page, /src="\/integritas-hero-lockup\.webp"/);
+  assert.match(page, /src="\/integritas-hero-lockup-eb2a6af5\.webp"/);
+  assert.doesNotMatch(page, /src="\/integritas-hero-lockup\.webp"/);
   assert.match(page, /hero-content-stack/);
   assert.match(page, /hero-supporting-copy/);
   assert.match(page, /hero-actions/);

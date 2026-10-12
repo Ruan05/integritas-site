@@ -374,7 +374,7 @@ function HeroSection() {
         <figure className="m-0 w-full flex flex-col items-center">
           <div className="hero-logo-master-wrap">
             <Image
-              src="/integritas-hero-lockup.webp"
+              src="/integritas-hero-lockup-eb2a6af5.webp"
               alt="Integritas brand lockup featuring Lady Justice."
               width={1448}
               height={1086}
