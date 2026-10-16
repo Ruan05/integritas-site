@@ -10,6 +10,24 @@ export const dynamic = "force-dynamic";
 
 const ADMIN_API = "https://leuixjgmlueptefintgo.supabase.co/functions/v1/integritas-admin-api";
 
+type ReportJob = Record<string, unknown> & {
+  id: string;
+  created_at: string;
+  runtime_provider: string;
+  case_revision?: number;
+  stage?: string;
+};
+
+function isReportJob(value: unknown): value is ReportJob {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string"
+    && typeof row.created_at === "string"
+    && typeof row.runtime_provider === "string"
+    && (row.case_revision === undefined || Number.isSafeInteger(row.case_revision))
+    && (row.stage === undefined || typeof row.stage === "string");
+}
+
 function meetsComprehensiveReportGate(content: string, snapshot: Record<string, unknown>, model: Awaited<ReturnType<typeof verifyReportModel>>) {
   const text = String(content || "");
   const escapedControls = (text.match(/\\\\[nrt]/g) || []).length;
@@ -72,9 +90,10 @@ export async function GET(request: Request) {
     const currentRevision = Number(snapshot.case?.revision);
     const draft = url.searchParams.get("draft") === "1";
     if (url.searchParams.get("stage") === "preliminary") {
-      const job = (Array.isArray(snapshot.jobs) ? snapshot.jobs : [])
-        .filter((row: any) => ["openclaw-oracle", "ruan-native"].includes(row.runtime_provider))
-        .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+      const jobs = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).filter(isReportJob);
+      const job = jobs
+        .filter((row) => ["openclaw-oracle", "ruan-native"].includes(row.runtime_provider))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
       if (!job || Number(job.case_revision) !== currentRevision)
         return NextResponse.json({ error: "Current preliminary report is unavailable." }, { status: 409 });
       const pdf = await getOracleReportPdf(job.id, token, currentRevision, false, true);
@@ -89,7 +108,8 @@ export async function GET(request: Request) {
     }
 
     const audience = reportAudience(url.searchParams.get("edition"));
-    const nativeJob = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).find((row: any) => row.id === report?.case_job_id && row.runtime_provider === "ruan-native");
+    const jobs = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).filter(isReportJob);
+    const nativeJob = jobs.find((row) => row.id === report?.case_job_id && row.runtime_provider === "ruan-native");
     if (nativeJob) {
       if (!nativeReportReady(nativeJob, report, currentRevision, draft))
         return NextResponse.json({error: "Both current report editions are available after independent review and PDF checks complete."}, {status: 409});
@@ -111,7 +131,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "This report belongs to an earlier case revision. Run the current investigation before PDF release." }, { status: 409 });
     }
     const model = await verifyReportModel(report);
-    const job = Array.isArray(snapshot.jobs) ? snapshot.jobs.find((row: { id?: string; stage?: string; case_revision?: number }) => row.id === report.case_job_id) : null;
+    const job = jobs.find((row) => row.id === report.case_job_id) ?? null;
     if (!['completed', 'incomplete'].includes(String(job?.stage)) || Number(job?.case_revision) !== currentRevision) {
       return NextResponse.json({ error: "The source investigation report is not available for this case revision." }, { status: 409 });
     }

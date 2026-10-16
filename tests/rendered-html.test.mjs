@@ -54,7 +54,7 @@ test("protects the contact and privacy contract", async () => {
 });
 
 test("keeps the live CRM behind one password and exposes the simple investigation workflow", async () => {
-  const [crmPage, gate, loginRoute, auth, backend, workspace, chat, browser] = await Promise.all([
+  const [crmPage, gate, loginRoute, auth, backend, workspace, chat, browser, intake] = await Promise.all([
     source("app/crm/page.tsx"),
     source("components/CrmPasswordGate.tsx"),
     source("app/api/crm/login/route.ts"),
@@ -63,6 +63,7 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
     source("components/IntegritasAdminWorkspace.tsx"),
     source("components/CaseAgentChat.tsx"),
     source("lib/integritas-browser.ts"),
+    source("lib/intake-browser.ts"),
   ]);
 
   assert.match(crmPage, /isValidCrmSession/);
@@ -79,7 +80,13 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(backend, /INTEGRITAS_CRM_BACKEND_TOKEN/);
   assert.match(backend, /x-integritas-crm-token/);
   assert.match(workspace, /Upload documents and add information for your DD/);
-  assert.match(chat, /Send &amp; start investigation|Send & start investigation/);
+  assert.match(chat, /Run full DD/);
+  assert.match(chat, /Send message/);
+  assert.match(workspace, /buildFullDDSubmissionFiles\(files, question\)/);
+  assert.match(workspace, /hasExistingEvidence/);
+  assert.match(workspace, /kind === "question_only"/);
+  assert.match(workspace, /buildQuestionOnlyRevisionRequest\(attempt\)/);
+  assert.match(workspace, /action: "chat_context", caseId: target\.caseId, question/);
   assert.match(workspace, /crmIntakeClient\.beginSubmission\("crm-session", attempt\)/);
   assert.match(workspace, /resolveCaseSubmissionTarget/);
   assert.doesNotMatch(workspace, /isInvestigationRuntimeReady|runtime_status|Investigation service unavailable/);
@@ -96,6 +103,7 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(workspace, /role="progressbar"/);
   assert.doesNotMatch(workspace, /signInWithOtp|Authorized analyst sign-in|Send secure sign-in link/);
   assert.match(browser, /MAX_CASE_DOCUMENTS = 20/);
+  assert.match(intake, /start_question_only_revision/);
   assert.match(browser, /worker_version, \[0, 3, 6\]/);
 });
 

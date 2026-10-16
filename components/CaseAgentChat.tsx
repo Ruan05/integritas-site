@@ -40,7 +40,7 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
    await caseChatRequest({action:'chat_send',caseId,...attempt});
    retry.current=null;setRetryPending(false);
    if(alive.current){onDraftChange('');const next=await caseChatRequest({action:'chat_history',caseId});if(alive.current)setData(next);}
-  }catch(e){if(alive.current)setError(e instanceof Error?e.message:'Message could not be sent. Retry to recover it.');}
+  }catch(e){if(alive.current){setRetryPending(false);setError(e instanceof Error?e.message:'Message could not be sent. Retry to recover it.');}}
   finally{sending.current=false;if(alive.current)setBusy(false);}
  }
  async function older(){
@@ -53,7 +53,7 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
  async function startInvestigation(){
   if(busy)return;setBusy(true);setError('');
   try{await onStart();}
-  catch(e){if(alive.current)setError(e instanceof Error?e.message:'The document submission could not be completed. Your files are still available; retry after resolving the error.');}
+  catch(e){if(alive.current)setError(e instanceof Error?e.message:'The DD submission could not be completed. Your brief and files are still available; retry after resolving the error.');}
   finally{if(alive.current)setBusy(false);}
  }
  return <section aria-label="Integritas DD agent" className="overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#10100F] shadow-xl shadow-black/20 focus-within:border-[#D4AF37]/50">
@@ -80,10 +80,13 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
    <textarea id="dd-agent-message" aria-describedby="dd-agent-message-help" value={draft} disabled={busy||uploadBusy||frozen||retryPending} onChange={e=>onDraftChange(e.target.value)} rows={3} placeholder="Message the DD agent… Add questions, background or anything you want investigated." className="block min-h-24 w-full resize-y border-0 bg-transparent text-base leading-6 outline-none placeholder:text-[#807B72] disabled:opacity-50" />
    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
     <button type="button" aria-label="Attach documents" onClick={onAttach} disabled={busy||uploadBusy||frozen||retryPending} className="inline-flex size-11 items-center justify-center rounded-full border border-white/10 text-[#BDA76F] disabled:opacity-40"><Paperclip size={18} aria-hidden="true" /></button>
-    <button type="button" onClick={()=>uploading?void startInvestigation():void send()} disabled={busy||uploadBusy||(uploading?retryPending:pending||!draft.trim()||!data||!caseId)} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-medium text-black disabled:opacity-35">{busy||uploadBusy?'Sending…':uploading?'Send & start investigation':retryPending?'Retry send':caseId?'Send message':'Send & start investigation'}<ArrowUp size={16} aria-hidden="true" /></button>
+    {caseId&&!uploading?<>
+     <button type="button" onClick={()=>void send()} disabled={busy||uploadBusy||frozen||retryPending||pending||!draft.trim()||!data} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-medium text-[#EEE5D3] disabled:opacity-35">{retryPending?'Retry send':'Send message'}<ArrowUp size={16} aria-hidden="true" /></button>
+     <button type="button" onClick={()=>void startInvestigation()} disabled={busy||uploadBusy||retryPending||!draft.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-medium text-black disabled:opacity-35">{busy||uploadBusy?'Preparing…':'Run full DD'}<ArrowUp size={16} aria-hidden="true" /></button>
+    </>:<button type="button" onClick={()=>void startInvestigation()} disabled={busy||uploadBusy||retryPending||(!uploading&&!draft.trim())} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-medium text-black disabled:opacity-35">{busy||uploadBusy?'Preparing…':frozen?'Resume full DD':'Run full DD'}<ArrowUp size={16} aria-hidden="true" /></button>}
    </div>
    {error?<p role="alert" className="mt-3 text-xs text-[#D9A597]">{error}</p>:null}
-   <p id="dd-agent-message-help" className="mt-3 text-xs leading-5 text-[#807B72]">{uploading||!caseId?'Attach documents to start a full DD investigation. Your message becomes the investigation brief · up to 3,000 characters.':`Message this case · up to 6,000 characters.${data?.memoryVersion?' Case memory is saved.':''} Attach documents to add them to this case and start a new full DD revision with the existing evidence and conversation history.`}</p>
+   <p id="dd-agent-message-help" className="mt-3 text-xs leading-5 text-[#807B72]">{caseId&&!uploading?`Send a question for a researched reply, or choose Run full DD to seal a new investigation revision using this brief, the case evidence and conversation history. Questions can be up to 6,000 characters; full DD briefs are limited to 3,000.${data?.memoryVersion?' Case memory is saved.':''}`:'Enter a request or link, or attach documents, then run a full DD. A typed brief can start an investigation without an upload · up to 3,000 characters.'}</p>
   </div>
  </section>;
 }

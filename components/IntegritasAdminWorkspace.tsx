@@ -5,7 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DocumentIntakePanel } from "@/components/DocumentIntakePanel";
 import CaseAgentChat, { caseChatRequest } from "@/components/CaseAgentChat";
 import { crmIntakeClient } from "@/lib/crm-intake";
-import type { SubmissionInput } from "@/lib/intake-browser";
+import { buildFullDDSubmissionFiles, buildQuestionOnlyRevisionRequest, hasVerifiedCaseEvidence, type SubmissionInput } from "@/lib/intake-browser";
 import InvestigationReport from "@/components/InvestigationReport";
 import { reportNeedsHold } from "@/lib/report-disposition";
 import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportModel } from "@/lib/integritas-report-model";
@@ -26,7 +26,6 @@ import {
   XCircle,
 } from "lucide-react";
 import {
-  MAX_CASE_DOCUMENTS,
   SUPPORTED_CASE_FILE_ACCEPT,
   validateCaseDocumentSelection,
 } from "@/lib/integritas-browser";
@@ -83,7 +82,7 @@ type PreliminaryRow = { case_id: string; case_job_id: string; case_revision: num
 type Snapshot = {
   preliminaryReports?: PreliminaryRow[];
   case?: CaseRow & Record<string, unknown>;
-  documents?: Array<{ id: string; name: string; created_at: string }>;
+  documents?: Array<{ id: string; name: string; created_at: string; sha256?: string }>;
   jobs?: JobRow[];
   reports?: ReportRow[];
   findings?: unknown[];
@@ -91,6 +90,17 @@ type Snapshot = {
   checks?: unknown[];
   checkpoints?: CheckpointRow[];
 };
+
+type QuestionOnlyAttempt = {
+  kind: "question_only";
+  caseId: string;
+  caseRevision: number;
+  clientKey: string;
+  question: string;
+  context: string;
+  replaceConfirmed: boolean;
+};
+type AcceptedAttempt = SubmissionInput | QuestionOnlyAttempt;
 
 type Milestone = { stage: string; label: string };
 
@@ -134,7 +144,7 @@ async function crmRequest(body: Record<string, unknown>) {
     cache: "no-store",
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(payload?.error || "Request failed."));
+  if (!response.ok) throw Object.assign(new Error(String(payload?.error || "Request failed.")), { status: response.status });
   return payload;
 }
 
@@ -241,7 +251,7 @@ export default function IntegritasAdminWorkspace() {
   const [question, setQuestion] = useState("");
   const [newCaseMode, setNewCaseMode] = useState(false);
   const [attemptFrozen, setAttemptFrozen] = useState(false);
-  const acceptedAttempt = useRef<SubmissionInput | null>(null);
+  const acceptedAttempt = useRef<AcceptedAttempt | null>(null);
   const creating = useRef(false);
   const [files, setFiles] = useState<File[]>([]);
   const [cases, setCases] = useState<CaseRow[]>([]);
@@ -249,8 +259,11 @@ export default function IntegritasAdminWorkspace() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
-  const [verifiedModel, setVerifiedModel] = useState<VerifiedReportModel | null>(null);
-  const [modelChecked, setModelChecked] = useState(false);
+  const [modelVerification, setModelVerification] = useState<{
+    report: ReportRow | null;
+    model: VerifiedReportModel | null;
+    checked: boolean;
+  }>({ report: null, model: null, checked: false });
   const [archiveMenu, setArchiveMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -261,17 +274,21 @@ export default function IntegritasAdminWorkspace() {
   const currentSnapshot = snapshot?.case?.id === activeCaseId ? snapshot : null;
   const job = newestJob(currentSnapshot);
   const report = newestReport(currentSnapshot);
+  const verificationMatchesReport = modelVerification.report === report;
+  const verifiedModel = verificationMatchesReport ? modelVerification.model : null;
+  const modelChecked = verificationMatchesReport && modelVerification.checked;
   const preliminary = (currentSnapshot?.preliminaryReports ?? []).find(row =>
     row.case_id === activeCaseId && row.case_job_id === job?.id
     && row.case_revision === currentSnapshot?.case?.revision
     && row.safe_metadata?.release_mode === "preliminary" && row.safe_metadata?.final === false);
   useEffect(() => {
     let live = true;
-    setVerifiedModel(null);
-    setModelChecked(false);
+    const currentReport = report;
     void verifyReportModel(report ?? null).then((model) => {
-      if (live) { setVerifiedModel(model); setModelChecked(true); }
-    }).catch(() => { if (live) setModelChecked(true); });
+      if (live) setModelVerification({ report: currentReport, model, checked: true });
+    }).catch(() => {
+      if (live) setModelVerification({ report: currentReport, model: null, checked: true });
+    });
     return () => { live = false; };
   }, [report]);
   const progress = job?.progress ?? 0;
@@ -432,7 +449,6 @@ export default function IntegritasAdminWorkspace() {
 
   useEffect(() => {
     if (!activeCaseId) return;
-    setSnapshot(null);
     let cancelled = false;
     crmRequest({ action: "snapshot", caseId: activeCaseId })
       .then((data) => { if (!cancelled) setSnapshot(data as Snapshot); })
@@ -490,37 +506,46 @@ export default function IntegritasAdminWorkspace() {
   };
 
   const submitInvestigation = async () => {
-    if (!files.length || submitting || creating.current) return;
+    if (submitting || creating.current) return;
     creating.current = true;
     setSubmitting(true);
     setNotice("Preparing your submission…");
+    let beginningSubmission = false;
     try {
       if (Array.from(question).length > 3000)
         throw new Error("Your message is limited to 3,000 characters.");
       if (!acceptedAttempt.current) {
         const latest = !newCaseMode && activeCaseId ? await loadCase(activeCaseId) : null;
         const target = resolveCaseSubmissionTarget({ newCaseMode, activeCaseId, snapshot: latest });
+        const hasExistingEvidence = hasVerifiedCaseEvidence(latest?.documents ?? []);
+        const questionOnly = Boolean(target && hasExistingEvidence && files.length === 0);
+        const submissionFiles = questionOnly ? [] : buildFullDDSubmissionFiles(files, question);
         if (target) {
-          validateCaseDocumentSelection(latest?.documents?.length ?? 0, files);
+          if (!questionOnly) validateCaseDocumentSelection(latest?.documents?.length ?? 0, submissionFiles);
           const replacingActiveRun = hasActiveCaseInvestigation(latest);
           if (replacingActiveRun && !window.confirm(
-            "This case still has an active DD run. Submitting these documents will create a new case revision using all existing and newly uploaded evidence plus the conversation history. Continue?",
+            files.length
+              ? "This case still has an active DD run. This submission will create a new case revision using existing verified evidence, your new files, and the conversation history. Continue?"
+              : "This case still has an active DD run. This submission will create a new case revision using its existing verified evidence and conversation history. Continue?",
           )) {
             setNotice("No changes were made. The current investigation is still running.");
             return;
           }
-          const priorConversation = await caseChatRequest({ action: "chat_context", caseId: target.caseId });
-          acceptedAttempt.current = {
+          const contextQuestion = question.trim() || "Run full due diligence using the verified evidence already attached to this case.";
+          const priorConversation = await caseChatRequest({ action: "chat_context", caseId: target.caseId, question: contextQuestion });
+          const common = {
             ...target,
             clientKey: "intake:" + crypto.randomUUID(),
             question,
             context: String(priorConversation.context || "").slice(0, 6000),
-            files: [...files],
             replaceConfirmed: replacingActiveRun,
           };
+          acceptedAttempt.current = questionOnly
+            ? { ...common, kind: "question_only" }
+            : { ...common, files: [...submissionFiles] };
         } else {
-          validateCaseDocumentSelection(0, files);
-          const created = await crmRequest({action: "create_case", authorized: true, title: caseTitle(files),
+          validateCaseDocumentSelection(0, submissionFiles);
+          const created = await crmRequest({action: "create_case", authorized: true, title: caseTitle(submissionFiles),
             purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
             authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
             intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."});
@@ -530,14 +555,34 @@ export default function IntegritasAdminWorkspace() {
           const revision = Number(prepared.case?.revision);
           if (!Number.isSafeInteger(revision)) throw new Error("The case revision is unavailable.");
           acceptedAttempt.current = {caseId, caseRevision: revision, clientKey: "intake:" + crypto.randomUUID(),
-            question, context: "", files: [...files], replaceConfirmed: false};
+            question, context: "", files: [...submissionFiles], replaceConfirmed: false};
         }
         setAttemptFrozen(true);
       }
       const attempt = acceptedAttempt.current;
       await refreshCases(attempt.caseId);
       await loadCase(attempt.caseId);
+      if ("kind" in attempt && attempt.kind === "question_only") {
+        beginningSubmission = true;
+        const result = await crmRequest(buildQuestionOnlyRevisionRequest(attempt));
+        beginningSubmission = false;
+        if (!Number.isSafeInteger(Number(result.case_revision)))
+          throw new Error("The question-only DD revision could not be confirmed. Retry this same submission to recover its status.");
+        await loadCase(attempt.caseId);
+        try {
+          await caseChatRequest({
+            action: "chat_send", caseId: attempt.caseId, clientKey: attempt.clientKey + ":chat",
+            message: attempt.question.trim() || "Run full due diligence using the verified evidence already attached to this case.",
+          });
+        } catch { /* The sealed revision is already accepted; the SQL intent remains authoritative. */ }
+        acceptedAttempt.current = null; setAttemptFrozen(false); setFiles([]); setQuestion(""); setNewCaseMode(false);
+        if (inputRef.current) inputRef.current.value = "";
+        setNotice("Your DD revision is accepted. It reuses the case’s verified evidence and prior conversation; progress and reports will appear here.");
+        return;
+      }
+      beginningSubmission = true;
       let submission = await crmIntakeClient.beginSubmission("crm-session", attempt);
+      beginningSubmission = false;
       for (const item of submission.items.filter(item => item.state === "pending")) {
         const match = /^file-(\d+)$/.exec(item.key);
         const file = match ? attempt.files[Number(match[1])] : undefined;
@@ -547,19 +592,24 @@ export default function IntegritasAdminWorkspace() {
       }
       await loadCase(attempt.caseId);
       setNotice(submission.state === "sealed"
-        ? "Evidence accepted. The full DD workflow has your brief and case history. Progress and reports will appear in this case."
+        ? "Your DD brief and evidence are sealed. The full investigation has the case history and prior evidence. Progress and reports will appear here."
         : "Upload is incomplete. Resume the required files in this case below.");
       if (submission.state === "sealed") {
         try {
           await caseChatRequest({action:"chat_send",caseId:attempt.caseId,clientKey:attempt.clientKey+":chat",message:attempt.question.trim()||"Please explain what has been received for this case and what the investigation will cover."});
-          setNotice("Documents accepted. Your case is queued for the full DD workflow; progress and reports will appear here.");
+          setNotice("Your DD brief and evidence are accepted. The case is queued for full investigation; progress and reports will appear here.");
         } catch {
-          setNotice("Documents accepted. Your case is queued for the full DD workflow; progress and reports will appear here.");
+          setNotice("Your DD brief and evidence are accepted. The case is queued for full investigation; progress and reports will appear here.");
         }
         acceptedAttempt.current = null; setAttemptFrozen(false); setFiles([]); setQuestion(""); setNewCaseMode(false);
         if (inputRef.current) inputRef.current.value = "";
       }
     } catch (error) {
+      const status = error && typeof error === "object" && "status" in error ? Number(error.status) : 0;
+      if (beginningSubmission && [400, 409].includes(status)) {
+        acceptedAttempt.current = null;
+        setAttemptFrozen(false);
+      }
       const message = error instanceof Error ? error.message : String(error);
       setNotice(message);
       throw new Error(message);

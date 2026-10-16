@@ -11,11 +11,13 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
   const [files,setFiles]=useState<File[]>([]),[question,setQuestion]=useState('');
   const [status,setStatus]=useState<SubmissionStatus|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
   const [error,setError]=useState(''),[replaceConfirmed,setReplaceConfirmed]=useState(false);
+  const [attemptFrozen,setAttemptFrozen]=useState(false);
   const [itemFiles,setItemFiles]=useState<Record<string,File>>({});
   const active=useRef(true),inFlight=useRef(false),attempt=useRef<SubmissionInput|null>(null),latest=useRef<SubmissionStatus|null>(null);
   const sequence=useRef(0);
   const drafting=useRef(false);
-  const change=useRef(onChanged);change.current=onChanged;
+  const change=useRef(onChanged);
+  useEffect(()=>{change.current=onChanged;},[onChanged]);
   const notified=useRef<{batchId:string|null;jobId:string|null}>({batchId:null,jobId:null});
   async function notify(next:SubmissionStatus|null){
     if(!active.current||next?.state!=='sealed')return;
@@ -30,7 +32,7 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
     const check=async()=>{
       if(checking||inFlight.current||drafting.current)return;checking=true;
       const epoch=sequence.current;
-      try{const next=await client.submissionStatus(token,latest.current?.batchId??null,caseId);if(valid&&active.current&&sequence.current===epoch){latest.current=next;if(next?.state==='expired'||next?.state==='cancelled')attempt.current=null;setStatus(next);setLoaded(true);setError('');await notify(next);}}
+      try{const next=await client.submissionStatus(token,latest.current?.batchId??null,caseId);if(valid&&active.current&&sequence.current===epoch){latest.current=next;if(next?.state==='expired'||next?.state==='cancelled'){attempt.current=null;setAttemptFrozen(false);}setStatus(next);setLoaded(true);setError('');await notify(next);}}
       catch{if(valid&&active.current&&sequence.current===epoch){setLoaded(false);setError('Could not recover submission status. Refresh before starting a new submission.');}}
       finally{checking=false;}
     };
@@ -39,7 +41,7 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
   },[token,caseId,client]);
   const open=status?.state==='open';
   const missing=open?status.items.filter(i=>i.state==='pending'):[];
-  const frozen=Boolean(attempt.current)||Boolean(status&&status.state!=='cancelled'&&status.state!=='expired');
+  const frozen=attemptFrozen||Boolean(status&&status.state!=='cancelled'&&status.state!=='expired');
   async function submit(){
     if(inFlight.current||!loaded)return;
     inFlight.current=true;sequence.current++;setBusy(true);setError('');
@@ -53,11 +55,11 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
           const recalled=await caseChatRequest({action:'chat_context',caseId});
           if(!active.current)return;
           // Freeze recalled history with the accepted brief, including during network retries.
-          attempt.current={caseId,caseRevision,clientKey:'intake:'+crypto.randomUUID(),question,context:recalled.context||'',files,replaceConfirmed};
+          attempt.current={caseId,caseRevision,clientKey:'intake:'+crypto.randomUUID(),question,context:recalled.context||'',files,replaceConfirmed};setAttemptFrozen(true);
         }
         beginning=true;current=await client.beginSubmission(token,attempt.current);beginning=false;if(!active.current)return;drafting.current=false;report(current);
       }
-      if(current.state!=='open'){if(current.state==='expired'||current.state==='cancelled')attempt.current=null;await notify(current);return;}
+      if(current.state!=='open'){if(current.state==='expired'||current.state==='cancelled'){attempt.current=null;setAttemptFrozen(false);}await notify(current);return;}
       const available=[...files];
       for(const item of current.items.filter(i=>i.state==='pending')){
         const matches=(f:File)=>f.name===item.name&&f.size===item.size&&intakeMime(f)===item.mime;
@@ -74,13 +76,13 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
         if(!active.current)return;report(current);
         if(current.state!=='open')break;
       }
-      if(current.state!=='open'){attempt.current=null;setFiles([]);setItemFiles({});await notify(current);}
-    }catch(e){if(active.current){if(beginning&&[400,409].includes(Number((e as {status?:number})?.status)))attempt.current=null;setError(e instanceof Error?e.message:'Upload interrupted. Reopen this case to recover its submission.');}}
+      if(current.state!=='open'){attempt.current=null;setAttemptFrozen(false);setFiles([]);setItemFiles({});await notify(current);}
+    }catch(e){if(active.current){if(beginning&&[400,409].includes(Number((e as {status?:number})?.status))){attempt.current=null;setAttemptFrozen(false);}setError(e instanceof Error?e.message:'Upload interrupted. Reopen this case to recover its submission.');}}
     finally{inFlight.current=false;if(active.current)setBusy(false);}
   }
   async function cancel(){
     if(!status||inFlight.current)return;inFlight.current=true;sequence.current++;setBusy(true);setError('');
-    try{const next=await client.cancelSubmission(token,status.batchId,caseId);if(active.current){report(next);attempt.current=null;setFiles([]);setItemFiles({});setQuestion('');}}
+    try{const next=await client.cancelSubmission(token,status.batchId,caseId);if(active.current){report(next);attempt.current=null;setAttemptFrozen(false);setFiles([]);setItemFiles({});setQuestion('');}}
     catch(e){if(active.current)setError(e instanceof Error?e.message:'Could not cancel submission.');}
     finally{inFlight.current=false;if(active.current)setBusy(false);}
   }
@@ -99,9 +101,9 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
     <label><input type="checkbox" checked={replaceConfirmed} disabled={busy||frozen} onChange={e=>setReplaceConfirmed(e.target.checked)}/>I confirm replacing an active investigation if one exists.</label>
     {message?<p role="status">{message}</p>:null}
     {status?<p>Submission revision: {status.caseRevision}</p>:null}
-    {status?.items.length?<ul aria-label="Submission files">{status.items.map(i=><li key={i.id}>{i.name} — {i.state==='verified'?'Bytes verified': 'File required'}{open&&i.state==='pending'&&!attempt.current?<label>Reselect {i.key} — {i.name}<input type="file" accept={INTAKE_ACCEPT} disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)setItemFiles(previous=>({...previous,[i.id]:file}));}}/></label>:null}</li>)}</ul>:null}
+    {status?.items.length?<ul aria-label="Submission files">{status.items.map(i=><li key={i.id}>{i.name} — {i.state==='verified'?'Bytes verified': 'File required'}{open&&i.state==='pending'&&!attemptFrozen?<label>Reselect {i.key} — {i.name}<input type="file" accept={INTAKE_ACCEPT} disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)setItemFiles(previous=>({...previous,[i.id]:file}));}}/></label>:null}</li>)}</ul>:null}
     {error?<p role="alert">{error}</p>:null}
-    {status?.state==='sealed'?<button type="button" className="secondary" disabled={busy} onClick={()=>{sequence.current++;drafting.current=true;attempt.current=null;report(null);setQuestion('');setFiles([]);setItemFiles({});setReplaceConfirmed(false);setError('');}}>New submission</button>:null}
+    {status?.state==='sealed'?<button type="button" className="secondary" disabled={busy} onClick={()=>{sequence.current++;drafting.current=true;attempt.current=null;setAttemptFrozen(false);report(null);setQuestion('');setFiles([]);setItemFiles({});setReplaceConfirmed(false);setError('');}}>New submission</button>:null}
     {status?.state!=='sealed'?<button type="button" disabled={busy||!loaded} onClick={()=>void submit()}>{busy?'Saving submission…':open?'Resume upload':'Upload & start DD'}</button>:null}
     {open?<button type="button" className="secondary" disabled={busy} onClick={()=>void cancel()}>Cancel incomplete upload</button>:null}
     <p>Verified files seal automatically on the server. You can close the browser after acceptance. Email delivery is paused.</p>
