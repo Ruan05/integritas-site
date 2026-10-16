@@ -77,7 +77,7 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
     <button type="button" onClick={()=>uploading?void onStart():void send()} disabled={busy||uploadBusy||(uploading?retryPending:pending||!draft.trim()||!data||!caseId)} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-medium text-black disabled:opacity-35">{busy||uploadBusy?'Sending…':uploading?'Send & start investigation':retryPending?'Retry send':caseId?'Send message':'Send & start investigation'}<ArrowUp size={16} aria-hidden="true" /></button>
    </div>
    {error?<p role="alert" className="mt-3 text-xs text-[#D9A597]">{error}</p>:null}
-   <p id="dd-agent-message-help" className="mt-3 text-xs leading-5 text-[#807B72]">{uploading||!caseId?'Attach documents to start an investigation. Your message is optional · up to 3,000 characters.':`Message this case · up to 6,000 characters.${data?.memoryVersion?' Case memory is saved.':''} Attach documents to start a new investigation.`}</p>
+   <p id="dd-agent-message-help" className="mt-3 text-xs leading-5 text-[#807B72]">{uploading||!caseId?'Attach documents to start a full DD investigation. Your message becomes the investigation brief · up to 3,000 characters.':`Message this case · up to 6,000 characters.${data?.memoryVersion?' Case memory is saved.':''} Attach documents to add them to this case and start a new full DD revision with the existing evidence and conversation history.`}</p>
   </div>
  </section>;
 }

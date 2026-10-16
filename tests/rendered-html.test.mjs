@@ -54,13 +54,14 @@ test("protects the contact and privacy contract", async () => {
 });
 
 test("keeps the live CRM behind one password and exposes the simple investigation workflow", async () => {
-  const [crmPage, gate, loginRoute, auth, backend, workspace, browser] = await Promise.all([
+  const [crmPage, gate, loginRoute, auth, backend, workspace, chat, browser] = await Promise.all([
     source("app/crm/page.tsx"),
     source("components/CrmPasswordGate.tsx"),
     source("app/api/crm/login/route.ts"),
     source("lib/crm-auth.ts"),
     source("app/api/crm/backend/route.ts"),
     source("components/IntegritasAdminWorkspace.tsx"),
+    source("components/CaseAgentChat.tsx"),
     source("lib/integritas-browser.ts"),
   ]);
 
@@ -77,9 +78,10 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(auth, /HMAC/);
   assert.match(backend, /INTEGRITAS_CRM_BACKEND_TOKEN/);
   assert.match(backend, /x-integritas-crm-token/);
-  assert.match(workspace, /Upload documents to investigate/);
-  assert.match(workspace, /Upload and start investigation/);
-  assert.match(workspace, /action: "start_case_investigation"/);
+  assert.match(workspace, /Upload documents and add information for your DD/);
+  assert.match(chat, /Send &amp; start investigation|Send & start investigation/);
+  assert.match(workspace, /crmIntakeClient\.beginSubmission\("crm-session", attempt\)/);
+  assert.match(workspace, /resolveCaseSubmissionTarget/);
   assert.doesNotMatch(workspace, /isInvestigationRuntimeReady|runtime_status|Investigation service unavailable/);
   assert.match(workspace, /Final report checks in progress/);
   assert.doesNotMatch(workspace, /Finalize report|Mark reviewed|Finalized analyst report\./);
@@ -88,9 +90,9 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(workspace, /Number\(report\?\.based_on_revision\) === Number\(snapshot\?\.case\?\.revision\)/);
   assert.match(workspace, /Historical report from an earlier investigation or case revision/);
   assert.match(workspace, /Investigation progress/);
-  assert.match(workspace, /Download report/);
+  assert.match(workspace, /Download Enhanced Due Diligence/);
   assert.match(workspace, /Previous investigations/);
-  assert.match(workspace, /depth: "maximum"/);
+  assert.match(workspace, /Maximum-depth, source-grounded due-diligence investigation/);
   assert.match(workspace, /role="progressbar"/);
   assert.doesNotMatch(workspace, /signInWithOtp|Authorized analyst sign-in|Send secure sign-in link/);
   assert.match(browser, /MAX_CASE_DOCUMENTS = 20/);

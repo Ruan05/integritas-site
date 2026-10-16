@@ -28,7 +28,9 @@ import {
 import {
   MAX_CASE_DOCUMENTS,
   SUPPORTED_CASE_FILE_ACCEPT,
+  validateCaseDocumentSelection,
 } from "@/lib/integritas-browser";
+import { hasActiveCaseInvestigation, resolveCaseSubmissionTarget } from "@/lib/intake-routing.mjs";
 
 type CaseRow = {
   id: string;
@@ -473,7 +475,10 @@ export default function IntegritasAdminWorkspace() {
   const chooseFiles = (next: File[]) => {
     try {
       if (!next.length) return;
-      if (next.length > MAX_CASE_DOCUMENTS) throw new Error(`Choose no more than ${MAX_CASE_DOCUMENTS} files.`);
+      const existingCount = !newCaseMode && currentSnapshot?.case?.id === activeCaseId
+        ? currentSnapshot.documents?.length ?? 0
+        : 0;
+      validateCaseDocumentSelection(existingCount, next);
       const invalid = next.find((file) => file.size > 50 * 1024 * 1024);
       if (invalid) throw new Error(`${invalid.name} is larger than 50 MB.`);
       setFiles(next);
@@ -493,17 +498,40 @@ export default function IntegritasAdminWorkspace() {
       if (Array.from(question).length > 3000)
         throw new Error("Your message is limited to 3,000 characters.");
       if (!acceptedAttempt.current) {
-        const created = await crmRequest({action: "create_case", authorized: true, title: caseTitle(files),
-          purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
-          authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
-          intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."});
-        const caseId = String(created.caseId || "");
-        if (!caseId) throw new Error("The case could not be created.");
-        const prepared = await crmRequest({action: "snapshot", caseId}) as Snapshot;
-        const revision = Number(prepared.case?.revision);
-        if (!Number.isSafeInteger(revision)) throw new Error("The case revision is unavailable.");
-        acceptedAttempt.current = {caseId, caseRevision: revision, clientKey: "intake:" + crypto.randomUUID(),
-          question, context: "", files: [...files], replaceConfirmed: false};
+        const latest = !newCaseMode && activeCaseId ? await loadCase(activeCaseId) : null;
+        const target = resolveCaseSubmissionTarget({ newCaseMode, activeCaseId, snapshot: latest });
+        if (target) {
+          validateCaseDocumentSelection(latest?.documents?.length ?? 0, files);
+          const replacingActiveRun = hasActiveCaseInvestigation(latest);
+          if (replacingActiveRun && !window.confirm(
+            "This case still has an active DD run. Submitting these documents will create a new case revision using all existing and newly uploaded evidence plus the conversation history. Continue?",
+          )) {
+            setNotice("No changes were made. The current investigation is still running.");
+            return;
+          }
+          const priorConversation = await caseChatRequest({ action: "chat_context", caseId: target.caseId });
+          acceptedAttempt.current = {
+            ...target,
+            clientKey: "intake:" + crypto.randomUUID(),
+            question,
+            context: String(priorConversation.context || "").slice(0, 6000),
+            files: [...files],
+            replaceConfirmed: replacingActiveRun,
+          };
+        } else {
+          validateCaseDocumentSelection(0, files);
+          const created = await crmRequest({action: "create_case", authorized: true, title: caseTitle(files),
+            purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
+            authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
+            intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."});
+          const caseId = String(created.caseId || "");
+          if (!caseId) throw new Error("The case could not be created.");
+          const prepared = await crmRequest({action: "snapshot", caseId}) as Snapshot;
+          const revision = Number(prepared.case?.revision);
+          if (!Number.isSafeInteger(revision)) throw new Error("The case revision is unavailable.");
+          acceptedAttempt.current = {caseId, caseRevision: revision, clientKey: "intake:" + crypto.randomUUID(),
+            question, context: "", files: [...files], replaceConfirmed: false};
+        }
         setAttemptFrozen(true);
       }
       const attempt = acceptedAttempt.current;
@@ -519,14 +547,14 @@ export default function IntegritasAdminWorkspace() {
       }
       await loadCase(attempt.caseId);
       setNotice(submission.state === "sealed"
-        ? "Evidence accepted. The investigation will start when its approved worker is available. You can close this page. Email is paused."
+        ? "Evidence accepted. The full DD workflow has your brief and case history. Progress and reports will appear in this case."
         : "Upload is incomplete. Resume the required files in this case below.");
       if (submission.state === "sealed") {
         try {
           await caseChatRequest({action:"chat_send",caseId:attempt.caseId,clientKey:attempt.clientKey+":chat",message:attempt.question.trim()||"Please explain what has been received for this case and what the investigation will cover."});
-          setNotice("Documents accepted. Your DD agent will reply here.");
+          setNotice("Documents accepted. The live DD workflow is running with your documents and brief; its progress and report will appear here.");
         } catch {
-          setNotice("Documents accepted. You can message your DD agent here.");
+          setNotice("Documents accepted. The live DD workflow is running; its progress and report will appear here.");
         }
         acceptedAttempt.current = null; setAttemptFrozen(false); setFiles([]); setQuestion(""); setNewCaseMode(false);
         if (inputRef.current) inputRef.current.value = "";
