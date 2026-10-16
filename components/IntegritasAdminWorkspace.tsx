@@ -11,8 +11,6 @@ import { reportNeedsHold } from "@/lib/report-disposition";
 import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportModel } from "@/lib/integritas-report-model";
 import {
   Archive,
-  ArrowUp,
-  Paperclip,
   CheckCircle2,
   ChevronDown,
   LayoutDashboard,
@@ -239,6 +237,8 @@ export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot |
 
 export default function IntegritasAdminWorkspace() {
   const [question, setQuestion] = useState("");
+  const [newCaseMode, setNewCaseMode] = useState(false);
+  const [attemptFrozen, setAttemptFrozen] = useState(false);
   const acceptedAttempt = useRef<SubmissionInput | null>(null);
   const creating = useRef(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -504,6 +504,7 @@ export default function IntegritasAdminWorkspace() {
         if (!Number.isSafeInteger(revision)) throw new Error("The case revision is unavailable.");
         acceptedAttempt.current = {caseId, caseRevision: revision, clientKey: "intake:" + crypto.randomUUID(),
           question, context: "", files: [...files], replaceConfirmed: false};
+        setAttemptFrozen(true);
       }
       const attempt = acceptedAttempt.current;
       await refreshCases(attempt.caseId);
@@ -523,11 +524,11 @@ export default function IntegritasAdminWorkspace() {
       if (submission.state === "sealed") {
         try {
           await caseChatRequest({action:"chat_send",caseId:attempt.caseId,clientKey:attempt.clientKey+":chat",message:attempt.question.trim()||"Please explain what has been received for this case and what the investigation will cover."});
-          setNotice("Documents accepted. Your DD agent will reply in the case conversation below.");
+          setNotice("Documents accepted. Your DD agent will reply here.");
         } catch {
-          setNotice("Documents accepted. Open the case conversation below to message your DD agent.");
+          setNotice("Documents accepted. You can message your DD agent here.");
         }
-        acceptedAttempt.current = null; setFiles([]); setQuestion("");
+        acceptedAttempt.current = null; setAttemptFrozen(false); setFiles([]); setQuestion(""); setNewCaseMode(false);
         if (inputRef.current) inputRef.current.value = "";
       }
     } catch (error) {
@@ -538,6 +539,8 @@ export default function IntegritasAdminWorkspace() {
   const resetNew = () => {
     if (submitting) return;
     acceptedAttempt.current = null;
+    setAttemptFrozen(false);
+    setNewCaseMode(true);
     setQuestion("");
     setFiles([]);
     setNotice("");
@@ -580,19 +583,18 @@ export default function IntegritasAdminWorkspace() {
             </button>
           </div>
 
-          {/* Chat composer adapted from 21st.dev/kokonutd/ai-input-with-file. */}
-          <div aria-label="DD agent intake" className="overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#10100F] shadow-xl shadow-black/20 focus-within:border-[#D4AF37]/50">
-            <div className="flex items-center gap-3 border-b border-white/8 px-5 py-4">
-              <span className="flex size-9 items-center justify-center rounded-full bg-[#D4AF37]/10 text-[#D4AF37]"><ShieldCheck size={18} aria-hidden="true" /></span>
-              <div>
-                <p className="text-sm font-medium text-[#EEE5D3]">Integritas DD agent</p>
-                <p className="mt-0.5 text-xs text-[#8F8981]">Your documents. Your questions. One investigation.</p>
-              </div>
-            </div>
+          <CaseAgentChat
+            key={newCaseMode ? "new-investigation" : activeCaseId || "new-investigation"}
+            caseId={newCaseMode ? undefined : activeCase?.id}
+            title={newCaseMode ? undefined : activeCase?.title}
+            draft={question} onDraftChange={setQuestion}
+            fileCount={files.length} uploadBusy={submitting} frozen={attemptFrozen}
+            onAttach={() => inputRef.current?.click()} onStart={submitInvestigation} onNew={resetNew}
+            attachments={(
             <div className="p-4 sm:p-5">
-              <input ref={inputRef} type="file" accept={SUPPORTED_CASE_FILE_ACCEPT} multiple className="sr-only" disabled={submitting || Boolean(acceptedAttempt.current)}
+              <input ref={inputRef} type="file" accept={SUPPORTED_CASE_FILE_ACCEPT} multiple className="sr-only" disabled={submitting || attemptFrozen}
                 onChange={(event) => chooseFiles(Array.from(event.target.files ?? []))} />
-              <button type="button" disabled={submitting || Boolean(acceptedAttempt.current)} onClick={() => inputRef.current?.click()}
+              <button type="button" disabled={submitting || attemptFrozen} onClick={() => inputRef.current?.click()}
                 className="flex min-h-36 w-full flex-col items-center justify-center rounded-xl border border-dashed border-[#D4AF37]/30 bg-[#D4AF37]/[0.025] px-4 py-5 text-center transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/[0.05] focus-visible:outline-2 focus-visible:outline-[#D4AF37] disabled:opacity-50">
                 <UploadCloud size={26} className="text-[#D4AF37]" aria-hidden="true" />
                 <span className="mt-3 text-sm font-medium text-[#EEE5D3]">Upload documents and add information for your DD</span>
@@ -602,7 +604,7 @@ export default function IntegritasAdminWorkspace() {
                 <div className="mt-3 rounded-xl border border-white/8 bg-black/20 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs text-[#DDD4C6]">{files.length} document{files.length === 1 ? "" : "s"} attached</p>
-                    <button type="button" disabled={submitting || Boolean(acceptedAttempt.current)} onClick={() => { setFiles([]); if (inputRef.current) inputRef.current.value = ""; }} className="min-h-11 px-2 text-xs text-[#BDA76F] hover:text-[#E4C45F] disabled:opacity-40">Clear files</button>
+                    <button type="button" disabled={submitting || attemptFrozen} onClick={() => { setFiles([]); if (inputRef.current) inputRef.current.value = ""; }} className="min-h-11 px-2 text-xs text-[#BDA76F] hover:text-[#E4C45F] disabled:opacity-40">Clear files</button>
                   </div>
                   <div className="max-h-28 space-y-2 overflow-auto">
                     {files.map((file, index) => <div key={file.name + file.size + index} className="flex items-center gap-2 text-xs text-[#8F8981]">
@@ -612,28 +614,11 @@ export default function IntegritasAdminWorkspace() {
                 </div>
               ) : null}
             </div>
-            <div className="border-t border-white/8 bg-[#151513] p-4 sm:p-5">
-              <label htmlFor="dd-agent-message" className="sr-only">Message the DD agent</label>
-              <textarea id="dd-agent-message" value={question} rows={3} aria-describedby="dd-agent-message-help" disabled={submitting || Boolean(acceptedAttempt.current)}
-                placeholder="Message the DD agent… Add questions, background or anything you want investigated."
-                onChange={e => { setQuestion(e.target.value); e.currentTarget.style.height = "auto"; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 220) + "px"; }}
-                className="block min-h-24 max-h-56 w-full resize-none border-0 bg-transparent text-base leading-6 text-[#F7F5F0] outline-none placeholder:text-[#807B72] disabled:opacity-50"
-              />
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <button type="button" aria-label="Attach documents" title="Attach documents" disabled={submitting || Boolean(acceptedAttempt.current)} onClick={() => inputRef.current?.click()} className="inline-flex size-11 items-center justify-center rounded-full border border-white/10 text-[#BDA76F] transition hover:border-[#D4AF37]/40 hover:text-[#E4C45F] disabled:opacity-40"><Paperclip size={18} aria-hidden="true" /></button>
-                <button type="button" disabled={!files.length || submitting} onClick={() => void submitInvestigation()}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-medium text-[#080808] transition hover:bg-[#E4C45F] disabled:cursor-not-allowed disabled:opacity-35">
-                  {submitting ? "Sending…" : "Send & start investigation"}<ArrowUp size={16} aria-hidden="true" />
-                </button>
-              </div>
-              <p id="dd-agent-message-help" className="mt-3 text-xs leading-5 text-[#807B72]">Attach documents to start. Your message is optional · up to 3,000 characters.</p>
-            </div>
-          </div>
+            )}
+          />
 
           {notice ? <p className="mt-3 text-center text-xs leading-5 text-[#9D968F]">{notice}</p> : null}
         </div>
-
-        {activeCase ? <CaseAgentChat key={activeCase.id} caseId={activeCase.id} title={activeCase.title} /> : null}
 
         {/* Collapsible pattern adapted from 21st.dev/anubra266 using our existing Radix primitives. */}
         <Collapsible className="mx-auto mt-8 max-w-3xl border border-[#D4AF37]/20 bg-[#0D0D0D]" onOpenChange={() => setArchiveMenu(null)}>
@@ -663,7 +648,7 @@ export default function IntegritasAdminWorkspace() {
                     key={item.id}
                     className={`relative border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
                   >
-                    <button type="button" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="block w-full pr-10 text-left">
+                    <button type="button" onClick={() => { setArchiveMenu(null); setQuestion(""); setNewCaseMode(false); setActiveCaseId(item.id); }} className="block w-full pr-10 text-left">
                       <p className={`truncate text-sm ${held ? "text-[#D9A597]" : "text-[#DDD4C6]"}`}>{item.title}</p>
                       <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
                         <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
@@ -678,7 +663,7 @@ export default function IntegritasAdminWorkspace() {
                       </button>
                       {archiveMenu === item.id ? (
                         <div role="menu" className="absolute right-0 z-10 mt-1 w-44 border border-white/10 bg-[#151515] p-1 shadow-2xl">
-                          <button type="button" role="menuitem" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="flex w-full items-center px-3 py-2 text-left text-xs text-[#DDD4C6] hover:bg-white/5">Open investigation</button>
+                          <button type="button" role="menuitem" onClick={() => { setArchiveMenu(null); setQuestion(""); setNewCaseMode(false); setActiveCaseId(item.id); }} className="flex w-full items-center px-3 py-2 text-left text-xs text-[#DDD4C6] hover:bg-white/5">Open investigation</button>
                           <button type="button" role="menuitem" onClick={() => void archiveCase(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Archive size={13} aria-hidden="true" /> Archive (keep evidence)</button>
                           <button type="button" role="menuitem" onClick={() => void deleteCasePermanently(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Trash2 size={13} aria-hidden="true" /> Permanently delete</button>
                         </div>
@@ -696,14 +681,16 @@ export default function IntegritasAdminWorkspace() {
           </CollapsibleContent>
         </Collapsible>
 
-        {activeCase && currentSnapshot?.case && !submitting ? <div className="mx-auto mt-8 max-w-3xl">
-          <h2 className="mb-3 font-serif text-xl">Submission · {activeCase.title}</h2>
-          <DocumentIntakePanel token="crm-session" caseId={activeCaseId} caseRevision={currentSnapshot.case.revision}
-            existingCount={currentSnapshot.documents?.length ?? 0} client={crmIntakeClient}
-            onChanged={async () => { await loadCase(activeCaseId); await refreshCases(activeCaseId); }} />
-        </div> : null}
+        {!newCaseMode && activeCase && currentSnapshot?.case && !submitting ? <details className="mx-auto mt-8 max-w-3xl border border-[#D4AF37]/20 bg-[#0D0D0D]">
+          <summary className="cursor-pointer px-5 py-4 text-sm text-[#BDA76F]">Manage document submission · {activeCase.title}</summary>
+          <div className="border-t border-white/8 p-4 sm:p-5">
+            <DocumentIntakePanel token="crm-session" caseId={activeCaseId} caseRevision={currentSnapshot.case.revision}
+              existingCount={currentSnapshot.documents?.length ?? 0} client={crmIntakeClient}
+              onChanged={async () => { await loadCase(activeCaseId); await refreshCases(activeCaseId); }} />
+          </div>
+        </details> : null}
 
-        {job ? (
+        {!newCaseMode && job ? (
           <section className="mx-auto mt-10 max-w-3xl border border-[#D4AF37]/18 bg-[#0D0D0D] p-5 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
