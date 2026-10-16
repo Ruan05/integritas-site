@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {ArrowUp,MessageSquare,ShieldCheck,Paperclip,Plus} from 'lucide-react';
+import {startVisiblePolling} from '@/lib/visible-polling.mjs';
 
 type Message={id:string;role:'user'|'assistant';content:string;status:string;error_code?:string;created_at:string};
 type History={messages:Message[];hasMore:boolean;memoryVersion:number;worker:{online:boolean;state:string}};
@@ -13,22 +14,23 @@ type Props={caseId?:string;title?:string;draft:string;onDraftChange:(value:strin
 export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachments,fileCount,uploadBusy,frozen,onAttach,onStart,onNew}:Props){
  const [data,setData]=useState<History|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[olderBusy,setOlderBusy]=useState(false),[retryPending,setRetryPending]=useState(false);
  const retry=useRef<{clientKey:string;message:string}|null>(null),sending=useRef(false),alive=useRef(true);
+ const refreshChat=useRef<(()=>Promise<unknown>)|null>(null);
  useEffect(()=>{
-  alive.current=true;let reading=false,valid=true;
+  alive.current=true;let valid=true;
   if(!caseId)return()=>{alive.current=false;};
   const read=async()=>{
-   if(reading)return;reading=true;
    try{const next=await caseChatRequest({action:'chat_history',caseId}) as History;
     if(valid){setData(current=>{
      const loaded=current?.messages||[],first=next.messages[0];
      const prior=first?loaded.filter(m=>m.created_at<first.created_at||(m.created_at===first.created_at&&m.id<first.id)):[];
      return {...next,messages:[...prior,...next.messages],hasMore:prior.length?Boolean(current?.hasMore):next.hasMore};
     });}
-   }catch(e){if(valid)setError(e instanceof Error?e.message:'Conversation unavailable.');}finally{reading=false;}
+    return next.messages.some(m=>m.role==='user'&&['queued','processing'].includes(m.status));
+   }catch(e){if(valid)setError(e instanceof Error?e.message:'Conversation unavailable.');return false;}
   };
-  void read();const timer=setInterval(()=>{if(document.visibilityState==='visible')void read();},5000);
-  const visible=()=>{if(document.visibilityState==='visible')void read();};document.addEventListener('visibilitychange',visible);
-  return()=>{valid=false;alive.current=false;clearInterval(timer);document.removeEventListener('visibilitychange',visible);};
+  const poll=startVisiblePolling(read,{idleDelay:30000});refreshChat.current=poll.refresh;void poll.refresh();
+  const visible=()=>{void poll.refresh();};document.addEventListener('visibilitychange',visible);window.addEventListener('focus',visible);
+  return()=>{valid=false;alive.current=false;refreshChat.current=null;poll.stop();document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',visible);};
  },[caseId]);
  const pending=Boolean(data?.messages.some(m=>m.role==='user'&&['queued','processing'].includes(m.status)));
  async function send(){
@@ -39,7 +41,7 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
   try{
    await caseChatRequest({action:'chat_send',caseId,...attempt});
    retry.current=null;setRetryPending(false);
-   if(alive.current){onDraftChange('');const next=await caseChatRequest({action:'chat_history',caseId});if(alive.current)setData(next);}
+   if(alive.current){onDraftChange('');await refreshChat.current?.();}
   }catch(e){if(alive.current){setRetryPending(false);setError(e instanceof Error?e.message:'Message could not be sent. Retry to recover it.');}}
   finally{sending.current=false;if(alive.current)setBusy(false);}
  }

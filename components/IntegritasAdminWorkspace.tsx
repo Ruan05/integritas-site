@@ -7,6 +7,7 @@ import CaseAgentChat, { caseChatRequest } from "@/components/CaseAgentChat";
 import { crmIntakeClient } from "@/lib/crm-intake";
 import { buildFullDDSubmissionFiles, buildQuestionOnlyRevisionRequest, hasVerifiedCaseEvidence, type SubmissionInput } from "@/lib/intake-browser";
 import InvestigationReport from "@/components/InvestigationReport";
+import {startVisiblePolling} from "@/lib/visible-polling.mjs";
 import { reportNeedsHold } from "@/lib/report-disposition";
 import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportModel } from "@/lib/integritas-report-model";
 import {
@@ -423,6 +424,7 @@ export default function IntegritasAdminWorkspace() {
     return rows;
   };
 
+  const setPollingActive = useRef<((active: boolean) => void) | null>(null);
   const loadCase = async (caseId: string) => {
     if (!caseId) {
       setSnapshot(null);
@@ -430,6 +432,8 @@ export default function IntegritasAdminWorkspace() {
     }
     const data = await crmRequest({ action: "snapshot", caseId });
     setSnapshot(data as Snapshot);
+    const job = newestJob(data as Snapshot);
+    setPollingActive.current?.(Boolean(job && !TERMINAL.has(job.stage)));
     return data as Snapshot;
   };
 
@@ -450,43 +454,36 @@ export default function IntegritasAdminWorkspace() {
   useEffect(() => {
     if (!activeCaseId) return;
     let cancelled = false;
-    crmRequest({ action: "snapshot", caseId: activeCaseId })
-      .then((data) => { if (!cancelled) setSnapshot(data as Snapshot); })
-      .catch((error) => { if (!cancelled) setNotice(error instanceof Error ? error.message : String(error)); });
-    return () => { cancelled = true; };
-  }, [activeCaseId]);
-
-  useEffect(() => {
-    if (!activeCaseId) return;
-    let cancelled = false;
-    const refresh = async () => {
-      if (document.visibilityState !== "visible") return;
-      try {
-        const data = await crmRequest({ action: "snapshot", caseId: activeCaseId });
-        if (!cancelled) {
-          setSnapshot(data as Snapshot);
-          const nextJob = newestJob(data as Snapshot);
-          if (nextJob && TERMINAL.has(nextJob.stage)) {
-            await refreshCases(activeCaseId);
-          }
+    let terminalVersion = "";
+    const poll = startVisiblePolling(async () => {
+      const data = await crmRequest({ action: "snapshot", caseId: activeCaseId });
+      if (cancelled) return false;
+      setSnapshot(data as Snapshot);
+      const nextJob = newestJob(data as Snapshot);
+      if (nextJob && TERMINAL.has(nextJob.stage)) {
+        const version = `${nextJob.id}:${nextJob.stage}:${nextJob.current_attempt}:${nextJob.updated_at}`;
+        if (version !== terminalVersion) {
+          await refreshCases(activeCaseId);
+          terminalVersion = version;
         }
-      } catch (error) {
-        if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
       }
-    };
-    // A case can be resumed from Oracle or another CRM session. Keep a slower
-    // visible-page refresh for stopped cases so that retry becomes observable.
-    const timer = window.setInterval(refresh, running ? 5000 : 15000);
-    const refreshOnFocus = () => { void refresh(); };
+      return Boolean(nextJob && !TERMINAL.has(nextJob.stage));
+    }, {idleDelay: 45000, onError: (error: unknown) => {
+      if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
+    }});
+    setPollingActive.current = poll.setActive;
+    void poll.refresh();
+    const refreshOnFocus = () => { void poll.refresh(); };
     window.addEventListener("focus", refreshOnFocus);
     document.addEventListener("visibilitychange", refreshOnFocus);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      setPollingActive.current = null;
+      poll.stop();
       window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, [activeCaseId, running]);
+  }, [activeCaseId]);
 
   const chooseFiles = (next: File[]) => {
     try {

@@ -5,9 +5,13 @@
 - [x] Task 1: typed full-DD brief and explicit chat/Run full DD UI.
 - [x] Task 2: bounded case history, report/source graph, question-relevant document excerpts.
 - [x] Task 3: fail-safe deterministic entity recovery in the production runner.
-- [ ] Task 4: full checks, independent review, controlled Oracle release, Supabase chat-broker deployment, Site publication, live smoke check, budget-gated retry, and persistence proof.
+- [x] Task 4a: required CI/build checks, manual fallback review, guarded Oracle release, Supabase function deployment, public Site v83 publication, and basic ordinary-chat production smoke without a full-DD job.
+- [ ] Task 4b: remaining production smoke for historical research citations, attachment locators, question-only replay/conflict, cross-case isolation, and visible provider failures. No extra production request was sent while prior DD spend remains unreconciled.
+- [ ] Task 4c: paid full-DD validation and successful report-persistence proof, blocked until prior DD provider spend and remaining authorized budget are reconciled.
 
-## Research facts
+## Initial research facts (handover checkpoint)
+
+These facts describe the start of the handover; later execution records below supersede any version, deployment, or status that changed.
 
 - Live case chat worker: `oracle-case-chat` / OpenClaw; live public search and page fetch are configured.
 - Live full-DD provider: `openclaw-oracle`; Ruan is not production-ready and remains disabled.
@@ -35,3 +39,17 @@
 - The compatibility correction is not yet committed or pushed. Supabase `integritas-case-chat` remains v10; it must be deployed from the reviewed source as v11. The Site remains public v82; matching Site source is not yet pushed or published.
 - **Verification remaining:** no production chat/follow-up, upload, or paired-report prompt has been submitted. No paid DD run was launched. Ruan remains not production-ready and disabled.
 - **Spend gate:** eight completed chat replies have explicit receipts totaling 8,053,562 nanodollars (about $0.0081). This does not reconcile full-DD provider spending. The prior DD job remains failed at attempt 32; do not retry it until its spend and remaining `$1/job` / `$5 total` allowance are established.
+
+## Continuation execution record — 2026-10-16
+
+This record supersedes the earlier checkpoint statements that Oracle, Site publication, and production chat smoke checks were still outstanding.
+
+- PR #32 fixed Oracle browser startup ordering and raised `openclaw-browser.service` startup timeout to 180 seconds. Its four CI jobs passed in run `38965099278`; PR #32 merged as `994bd7929b7009619a1a0e37a7a681921ded8c39`. The production approved branch head was verified at that exact SHA.
+- The guarded Oracle release completed successfully from that exact branch head. The runner tests, policy/config validation, browser doctor, deterministic provider/search smoke, and deployment checks passed. `integritas-control-worker`, `integritas-oracle-case-chat`, `openclaw-gateway`, and `openclaw-browser` were active after deployment. Ruan remains disabled.
+- Live Supabase state after release: migration `20261016194952_integritas_question_only_revision` remains applied (not rerun); `integritas-admin-api` v43 active; `integritas-case-chat` v11 active with source SHA `7ff34887c1eee4062200b26022b0abf9c8a87005b867f6b3bf7e8a85f4dd2d3c`.
+- The Site source at `e93b72a4be630369cbc63d588cd89b1bd5ef4a65` was saved and published as public version 83. Current live URL: `https://integritass.com`; deployment `appgdep_6ad28f44948881919f3033c33563469c` succeeded at `https://integritas-business.ruansch1.chatgpt.site`. The saved archive hash is `sha256:cee93423ed7b5d31cb66c563911931ee4ac1fbd374a93936c487b2c842044039`; public audience verified.
+- Live smoke checks: public landing page loaded; authenticated `/crm` loaded; the active case and invoice were visible; a read-only ordinary chat returned a successful web-search connectivity response and accurately summarized the case route, one invoice, absent comprehensive/final report, and failed prior attempt. No DD was launched and no evidence or route was changed. This does not prove a full-DD report can be committed or replace the more specific attachment/follow-up/revision production checks.
+- Read-only audit of the prior failed full-DD job confirms attempt 32 is failed at 0% and there is no row for that job in `integritas_reports`. The output table contains 27 preliminary bundle/PDF pairs plus one `bundle` artifact and one `report_markdown` artifact; those stored artifacts are not a committed report row and were not presented as a completed final report. Attempt 32 checkpoints expose workflow metadata, not provider-cost receipts. No provider-cost ledger was found in the queried application schema.
+- Site focused tests, lint, production build, and full suite passed (55 tests). PR #32's database-security, native-contracts, verify, and question-only revision SQL jobs all passed. Manual final review found no actionable issue; no independent automated review evidence or GitHub reviewer sign-off was available.
+- Oracle root usage is back to 89% (3.5 GB free); `/var/cache/dnf` is 181 MB after cleanup. No further files were deleted. Continue monitoring disk pressure; do not remove audit logs, evidence, reports, OpenClaw state, or unclassified temporary files.
+- **Paid-run status: blocked.** No new full-DD validation was run. The available `$0.0081` in chat receipts does not reconcile full-DD provider charges or prove remaining budget. The failed job has preliminary and report-like output artifacts but no committed `integritas_reports` row; this is not sufficient to claim completion or infer cost. Keep the `$1 per job` and `$5 total` caps; do not retry until provider receipts, job/attempt state, token usage, pricing, and remaining cap are reconciled. Successful report-persistence proof remains outstanding for the same reason.
