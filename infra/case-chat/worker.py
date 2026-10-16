@@ -35,24 +35,36 @@ def recall_history(recent,older,message):
     selected=relevant+recent[-16:]
     return [{'id':row['id'],'role':row['role'],'content':row['content'][:(6000 if row['id']==recent[-1]['id'] else 1600)],'status':row['status']} for row in selected]
 
-def validate_output(output,allowed):
+def _valid_lessons(rows,allowed):
+    valid=[]
+    if not isinstance(rows,list):return valid
+    for row in rows[:8]:
+        if not isinstance(row,dict):continue
+        text=row.get('text');refs=row.get('source_message_ids')
+        if not isinstance(text,str) or not text.strip() or len(text)>600:continue
+        if not isinstance(refs,list) or not 1<=len(refs)<=5 or any(ref not in allowed for ref in refs):continue
+        valid.append({'text':text,'source_message_ids':refs})
+    return valid
+
+def validate_output(output,allowed,previous_memory=None):
     if not isinstance(output,dict) or not isinstance(output.get('reply'),str) or not 1<=len(output['reply'].strip())<=12000:
         raise ValueError('Invalid reply')
-    memory=output.get('memory')
-    if not isinstance(memory,dict) or not isinstance(memory.get('summary'),str) or len(memory['summary'])>6000:
-        raise ValueError('Invalid memory summary')
-    lessons=memory.get('lessons')
-    if not isinstance(lessons,list) or len(lessons)>8:raise ValueError('Invalid lessons')
-    # Some structured models pad an optional array with wholly empty slots.
-    # Drop only empty placeholders; substantive entries still need valid sources.
-    lessons=[row for row in lessons if row!={'text':'','source_message_ids':[]}]
-    for row in lessons:
-        if not isinstance(row,dict) or not isinstance(row.get('text'),str) or not 1<=len(row['text'])<=600:
-            raise ValueError('Invalid lesson')
-        refs=row.get('source_message_ids')
-        if not isinstance(refs,list) or not 1<=len(refs)<=5 or any(ref not in allowed for ref in refs):
-            raise ValueError('Lesson source not recalled')
-    return {'reply':output['reply'].strip(),'memory':{'summary':memory['summary'],'lessons':lessons}}
+    previous=previous_memory if isinstance(previous_memory,dict) else {}
+    memory=output.get('memory') if isinstance(output.get('memory'),dict) else {}
+    prior_summary=previous.get('summary')
+    if not isinstance(prior_summary,str) or len(prior_summary)>6000:prior_summary=''
+    summary=memory.get('summary')
+    if not isinstance(summary,str) or len(summary)>6000:summary=prior_summary
+    prior_lessons=_valid_lessons(previous.get('lessons'),allowed)
+    rows=memory.get('lessons')
+    if not isinstance(rows,list) or len(rows)>8:
+        lessons=prior_lessons
+    else:
+        # Keep the reply even when optional memory output is malformed. Only
+        # source-linked lessons pass through; otherwise retain existing memory.
+        lessons=_valid_lessons(rows,allowed)
+        if not lessons and prior_lessons:lessons=prior_lessons
+    return {'reply':output['reply'].strip(),'memory':{'summary':summary,'lessons':lessons}}
 
 class Worker:
     def __init__(self,root=ROOT):
@@ -116,7 +128,7 @@ class Worker:
                 if STOP.is_set():raise RuntimeError('Worker stopping')
             stage='inference';result=model.infer('case-chat-v1','chat-'+turn['id'],'reason',canonical(packet),check)
             stage='validation'
-            output=validate_output(result['output'],allowed)
+            output=validate_output(result['output'],allowed,data.get('memory'))
             stage='commit';self.api('worker_complete',**fields,**output,historyCount=len(recent)+len(older),
                 receipt={'model':result['model'],'generation_id':result['provider_generation_id'],
                          'cost_nanodollars':result['usage']['cost_nanodollars']})
@@ -127,7 +139,8 @@ class Worker:
             # No automatic repeat of potentially billed ambiguous provider requests.
             try:self.api('worker_fail',**fields,code=code);self.heartbeat('budget_exhausted' if code=='BUDGET_EXHAUSTED' else 'model_unavailable')
             except Exception:pass
-            LOG.error('Reply stopped: stage=%s class=%s',stage,type(error).__name__)
+            reason='Invalid reply' if stage=='validation' and isinstance(error,ValueError) and str(error)=='Invalid reply' else type(error).__name__
+            LOG.error('Reply stopped: stage=%s class=%s reason=%s',stage,type(error).__name__,reason)
         return True
 
     def serve(self):

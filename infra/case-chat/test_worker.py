@@ -15,7 +15,9 @@ class MemoryContractTests(unittest.TestCase):
 
     def test_memory_cannot_invent_provenance(self):
         value={'reply':'A reply','memory':{'summary':'A case-local note','lessons':[{'text':'Use concise replies','source_message_ids':['another-case']}]}}
-        with self.assertRaises(ValueError):module.validate_output(value,{'this-case'})
+        result=module.validate_output(value,{'this-case'})
+        self.assertEqual(result['reply'],'A reply')
+        self.assertEqual(result['memory']['lessons'],[])
 
     def test_valid_contextual_lesson_is_preserved(self):
         value={'reply':'A reply','memory':{'summary':'Unverified user goal','lessons':[{'text':'Use concise replies','source_message_ids':['this-case']}]}}
@@ -26,11 +28,18 @@ class MemoryContractTests(unittest.TestCase):
         value={'reply':'A reply','memory':{'summary':'A note','lessons':[{'text':'','source_message_ids':[]}]}}
         self.assertEqual(module.validate_output(value,set())['memory']['lessons'],[])
         value['memory']['lessons']=[{'text':'Some unsupported claim','source_message_ids':[]}]
-        with self.assertRaises(ValueError):module.validate_output(value,set())
+        self.assertEqual(module.validate_output(value,set())['memory']['lessons'],[])
+
+    def test_malformed_optional_memory_does_not_block_reply_or_erase_case_memory(self):
+        previous={'summary':'Earlier case context','lessons':[{'text':'Keep the prior source-linked note','source_message_ids':['prior']} ]}
+        value={'reply':'Hello.','memory':{'summary':'x'*6001,'lessons':[{'text':'','source_message_ids':[]} ]}}
+        result=module.validate_output(value,{'prior'},previous)
+        self.assertEqual(result['reply'],'Hello.')
+        self.assertEqual(result['memory']['summary'],'Earlier case context')
+        self.assertEqual(result['memory']['lessons'],[{'text':'Keep the prior source-linked note','source_message_ids':['prior']}])
 
     def test_invalid_and_oversized_model_outputs_are_rejected(self):
-        for value in [None,{'reply':''},{'reply':'x'*12001,'memory':{'summary':'','lessons':[]}},
-                      {'reply':'x','memory':{'summary':'x'*6001,'lessons':[]}}]:
+        for value in [None,{'reply':''},{'reply':'x'*12001,'memory':{'summary':'','lessons':[]}}]:
             with self.assertRaises(ValueError):module.validate_output(value,set())
 
 if __name__=='__main__':unittest.main()
