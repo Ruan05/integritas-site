@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildConversationContext, caseScopedRows, selectDocumentContext, sanitizePublicSourceUrl, boundText} from '../supabase/functions/_shared/case-chat-context.mjs';
+import {buildConversationContext, caseScopedRows, caseWithConversationContext, selectDocumentContext, sanitizePublicSourceUrl, boundText} from '../supabase/functions/_shared/case-chat-context.mjs';
 
 test('selects passages relevant to the user question while preserving case document identity', async () => {
   const text = `${'Generic administrative language. '.repeat(80)}\nBeneficiary account holder: Meridian Trade Ltd.\n${'Footer terms. '.repeat(80)}`;
@@ -28,6 +28,13 @@ test('bounds overlong source records and strips credential-bearing URL component
 test('rejects rows outside the authorized case instead of serializing cross-case context', async () => {
   assert.deepEqual(caseScopedRows([{case_id: 'case-1', id: 'a'}], 'case-1'), [{case_id: 'case-1', id: 'a'}]);
   assert.throws(() => caseScopedRows([{case_id: 'case-2', id: 'other'}], 'case-1'), /case scope/);
+});
+
+test('nests bounded conversation context in the case object consumed by the Oracle bridge', () => {
+  const caseRecord = caseWithConversationContext({id: 'case-1', investigation_context: {schema_version: 'case-chat-context-v2'}}, 'bounded prior case history');
+  assert.equal(caseRecord.id, 'case-1');
+  assert.equal(caseRecord.conversation_context, 'bounded prior case history');
+  assert.equal(caseRecord.investigation_context.schema_version, 'case-chat-context-v2');
 });
 
 test('carries question-relevant prior turns within the existing intake context limit', () => {

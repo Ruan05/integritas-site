@@ -124,6 +124,11 @@ export function caseScopedRows(rows, caseId) {
   return rows;
 }
 
+export function caseWithConversationContext(caseRecord, conversationContext) {
+  const base = caseRecord && typeof caseRecord === 'object' && !Array.isArray(caseRecord) ? caseRecord : {};
+  return { ...base, conversation_context: String(conversationContext ?? '') };
+}
+
 export function buildConversationContext(memory, messages, query, maxCharacters = 6000) {
   const rows = Array.isArray(messages) ? messages : [];
   const terms = termsFor(query);
