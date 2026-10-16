@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as tus from "tus-js-client";
-import { integritasSupabase } from "@/lib/integritas-supabase";
+import { DocumentIntakePanel } from "@/components/DocumentIntakePanel";
+import { crmIntakeClient } from "@/lib/crm-intake";
+import type { SubmissionInput } from "@/lib/intake-browser";
 import InvestigationReport from "@/components/InvestigationReport";
 import { reportNeedsHold } from "@/lib/report-disposition";
 import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportModel } from "@/lib/integritas-report-model";
@@ -60,6 +61,7 @@ type ReportRow = {
   case_id?: string;
   case_job_id?: string;
   status: string;
+  finalization_method?: string;
   summary?: string;
   content_markdown?: string;
   limitations?: string;
@@ -130,56 +132,9 @@ async function crmRequest(body: Record<string, unknown>) {
   return payload;
 }
 
-async function uploadFile(caseId: string, file: File) {
-  const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : file.name.toLowerCase().endsWith(".png") ? "image/png" : /\.jpe?g$/i.test(file.name) ? "image/jpeg" : file.name.toLowerCase().endsWith(".csv") ? "text/csv" : file.name.toLowerCase().endsWith(".md") ? "text/markdown" : "text/plain");
-  const safeName = file.name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80) || "document";
-  const idempotencyKey = `crm:${caseId}:${safeName}:${file.size}:${file.lastModified}`.slice(0, 160);
-  const reservationResponse = await crmRequest({
-    action: "reserve_upload",
-    caseId,
-    name: file.name,
-    mime,
-    size: file.size,
-    idempotency_key: idempotencyKey,
-  });
-  if (reservationResponse.finalized) return reservationResponse;
-
-  if (file.size > 6 * 1024 * 1024) {
-    await new Promise<void>((resolve, reject) => {
-      const upload = new tus.Upload(file, {
-        endpoint: String(reservationResponse.resumableEndpoint),
-        chunkSize: 6 * 1024 * 1024,
-        retryDelays: [0, 3000, 5000, 10000, 20000],
-        headers: { "x-signature": String(reservationResponse.uploadToken) },
-        metadata: {
-          bucketName: String(reservationResponse.bucket),
-          objectName: String(reservationResponse.objectPath),
-          contentType: mime,
-        },
-        fingerprint: async () => [String(reservationResponse.reservationId), file.name, String(file.size), String(file.lastModified)].join(":"),
-        onError: reject,
-        onSuccess: () => resolve(),
-      });
-      upload.findPreviousUploads().then((previous) => {
-        if (previous.length) upload.resumeFromPreviousUpload(previous[0]);
-        upload.start();
-      }).catch(reject);
-    });
-  } else {
-    const result = await integritasSupabase.storage
-      .from(String(reservationResponse.bucket))
-      .uploadToSignedUrl(String(reservationResponse.objectPath), String(reservationResponse.uploadToken), file, {
-        contentType: mime,
-        upsert: false,
-      });
-    if (result.error) throw result.error;
-  }
-
-  return crmRequest({ action: "finalize_upload", reservationId: reservationResponse.reservationId });
-}
 
 function newestJob(snapshot: Snapshot | null) {
-  const jobs = (snapshot?.jobs ?? []).filter((job) => job.runtime_provider === "openclaw-oracle");
+  const jobs = (snapshot?.jobs ?? []).filter((job) => ["openclaw-oracle", "ruan-native"].includes(job.runtime_provider ?? ""));
   return jobs.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))[0] ?? null;
 }
 
@@ -277,6 +232,10 @@ export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot |
 }
 
 export default function IntegritasAdminWorkspace() {
+  const [question, setQuestion] = useState("");
+  const [extraContext, setExtraContext] = useState("");
+  const acceptedAttempt = useRef<SubmissionInput | null>(null);
+  const creating = useRef(false);
   const [files, setFiles] = useState<File[]>([]);
   const [cases, setCases] = useState<CaseRow[]>([]);
   const [activeCaseId, setActiveCaseId] = useState("");
@@ -315,7 +274,10 @@ export default function IntegritasAdminWorkspace() {
     && Number(report?.based_on_revision) === Number(snapshot?.case?.revision));
   const reportIncomplete = Boolean(reportMatchesCurrentJob && report && reportNeedsHold(report.summary || "", report.content_markdown || ""));
   const modelEligible = reportEligibleForFinalization(verifiedModel);
-  const reportFinalized = reportMatchesCurrentJob && report?.status === "finalized" && !reportIncomplete && modelEligible;
+  const nativeFinalized = job?.runtime_provider === "ruan-native" && job.stage === "completed"
+    && report?.finalization_method === "automated_independent_review";
+  const reportFinalized = reportMatchesCurrentJob && report?.status === "finalized"
+    && (nativeFinalized || (!reportIncomplete && modelEligible));
   const reportDraftPdfReady = Boolean(reportMatchesCurrentJob && report
     && ["draft", "reviewed"].includes(report.status)
     && verifiedModel?.quality.report_structure === "maximum_depth_edd_28_v1_verified"
@@ -518,51 +480,54 @@ export default function IntegritasAdminWorkspace() {
   };
 
   const submitInvestigation = async () => {
-    if (!files.length || submitting) return;
+    if (!files.length || submitting || creating.current) return;
+    creating.current = true;
     setSubmitting(true);
-    setNotice("Preparing your investigation…");
+    setNotice("Preparing your submission…");
     try {
-      const created = await crmRequest({
-        action: "create_case",
-        authorized: true,
-        title: caseTitle(files),
-        purpose: "Maximum-depth, source-grounded due-diligence investigation. Extract every material fact from every page, reconcile all documents, conduct specialist public-source research, preserve contradictions and produce a comprehensive evidence-linked report with visualisations and explicit closure gates.",
-        authorizedScope: "Review every supplied document page and attachment; normalize and hash inputs; identify entities, aliases, representatives, authority, ownership/control, banking/payment, product/title/capacity, storage/terminal, logistics/maritime, pricing/economics, trade finance, document forensics, sanctions/PEP/adverse media, digital attribution and contradictions. Use independent research lanes, bounded provider failover and critic review. Do not mark the case complete when research synthesis, source validation, independent QA or PDF assembly is degraded; retain unresolved gates and retry from durable checkpoints.",
-        intendedSubjects: "Entities identified in the submitted evidence",
-        jurisdictions: "International; determine relevant jurisdictions from the evidence.",
-      });
-      const caseId = String(created.caseId || "");
-      if (!caseId) throw new Error("The case could not be created.");
-
-      for (let index = 0; index < files.length; index += 1) {
-        setNotice(`Uploading document ${index + 1} of ${files.length}…`);
-        await uploadFile(caseId, files[index]);
+      if (Array.from(question).length > 3000 || Array.from(extraContext).length > 6000)
+        throw new Error("Questions are limited to 3,000 characters and additional information to 6,000 characters.");
+      if (!acceptedAttempt.current) {
+        const created = await crmRequest({action: "create_case", authorized: true, title: caseTitle(files),
+          purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
+          authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
+          intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."});
+        const caseId = String(created.caseId || "");
+        if (!caseId) throw new Error("The case could not be created.");
+        const prepared = await crmRequest({action: "snapshot", caseId}) as Snapshot;
+        const revision = Number(prepared.case?.revision);
+        if (!Number.isSafeInteger(revision)) throw new Error("The case revision is unavailable.");
+        acceptedAttempt.current = {caseId, caseRevision: revision, clientKey: "intake:" + crypto.randomUUID(),
+          question, context: extraContext, files: [...files], replaceConfirmed: false};
       }
-
-      const prepared = await crmRequest({ action: "snapshot", caseId }) as Snapshot;
-      const revision = Number(prepared.case?.revision ?? 0);
-      setNotice("Starting the full investigation…");
-      await crmRequest({
-        action: "start_case_investigation",
-        case_id: caseId,
-        case_revision: revision,
-        depth: "maximum",
-        idempotency_key: `crm:${caseId}:rev:${revision}:maximum`,
-      });
-
-      await refreshCases(caseId);
-      await loadCase(caseId);
-      setFiles([]);
-      if (inputRef.current) inputRef.current.value = "";
-      setNotice("Investigation started. You can leave this page and return later.");
+      const attempt = acceptedAttempt.current;
+      await refreshCases(attempt.caseId);
+      await loadCase(attempt.caseId);
+      let submission = await crmIntakeClient.beginSubmission("crm-session", attempt);
+      for (const item of submission.items.filter(item => item.state === "pending")) {
+        const match = /^file-(\d+)$/.exec(item.key);
+        const file = match ? attempt.files[Number(match[1])] : undefined;
+        if (!file) throw new Error("Reopen this case and reselect the missing evidence to resume.");
+        setNotice(`Verifying ${item.name}…`);
+        submission = await crmIntakeClient.uploadSubmissionItem("crm-session", submission.batchId, item.id, file);
+      }
+      await loadCase(attempt.caseId);
+      setNotice(submission.state === "sealed"
+        ? "Evidence accepted. The investigation will start when its approved worker is available. You can close this page. Email is paused."
+        : "Upload is incomplete. Resume the required files in this case below.");
+      if (submission.state === "sealed") {
+        acceptedAttempt.current = null; setFiles([]); setQuestion(""); setExtraContext("");
+        if (inputRef.current) inputRef.current.value = "";
+      }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { creating.current = false; setSubmitting(false); }
   };
 
   const resetNew = () => {
+    if (submitting) return;
+    acceptedAttempt.current = null;
+    setQuestion(""); setExtraContext("");
     setFiles([]);
     setNotice("");
     if (inputRef.current) inputRef.current.value = "";
@@ -635,6 +600,17 @@ export default function IntegritasAdminWorkspace() {
             </div>
           ) : null}
 
+          <div className="mt-5 space-y-4">
+            <label className="block text-sm text-[#DDD4C6]">Questions for this investigation
+              <textarea value={question} disabled={submitting || Boolean(acceptedAttempt.current)} onChange={e => setQuestion(e.target.value)} className="mt-2 block min-h-24 w-full border border-white/20 bg-[#0D0D0D] p-3 text-sm" />
+              <span className="mt-1 block text-xs text-[#9D968F]">Optional · 3,000 characters. Leave blank to investigate all material claims.</span>
+            </label>
+            <label className="block text-sm text-[#DDD4C6]">Additional information
+              <textarea value={extraContext} disabled={submitting || Boolean(acceptedAttempt.current)} onChange={e => setExtraContext(e.target.value)} className="mt-2 block min-h-24 w-full border border-white/20 bg-[#0D0D0D] p-3 text-sm" />
+              <span className="mt-1 block text-xs text-[#9D968F]">Optional · 6,000 characters. Kept separately from verified evidence.</span>
+            </label>
+          </div>
+
           <button
             type="button"
             disabled={!files.length || submitting}
@@ -646,6 +622,13 @@ export default function IntegritasAdminWorkspace() {
 
           {notice ? <p className="mt-3 text-center text-xs leading-5 text-[#9D968F]">{notice}</p> : null}
         </div>
+
+        {activeCase && currentSnapshot?.case && !submitting ? <div className="mx-auto mt-8 max-w-3xl">
+          <h2 className="mb-3 font-serif text-xl">Submission · {activeCase.title}</h2>
+          <DocumentIntakePanel token="crm-session" caseId={activeCaseId} caseRevision={currentSnapshot.case.revision}
+            existingCount={currentSnapshot.documents?.length ?? 0} client={crmIntakeClient}
+            onChanged={async () => { await loadCase(activeCaseId); await refreshCases(activeCaseId); }} />
+        </div> : null}
 
         {job ? (
           <section className="mx-auto mt-10 max-w-3xl border border-[#D4AF37]/18 bg-[#0D0D0D] p-5 sm:p-7">
@@ -751,8 +734,9 @@ export default function IntegritasAdminWorkspace() {
                         <FileText size={14} /> Open PDF
                       </a>
                       <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&download=1`} download className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
-                        <Download size={14} /> Download report PDF
+                        <Download size={14} /> Download Enhanced Due Diligence
                       </a>
+                      {job?.runtime_provider === "ruan-native" ? <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&edition=internal&download=1`} download className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F]"><Download size={14} /> Download INTERNAL FULL</a> : null}
                     </>
                   ) : null}
                   {reportDraftPdfReady ? (

@@ -1,3 +1,4 @@
+import { nativeReportReady, reportAudience } from "@/lib/native-report-download";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { crmSessionCookie, isValidCrmSession } from "@/lib/crm-auth";
@@ -19,11 +20,11 @@ function meetsComprehensiveReportGate(content: string, snapshot: Record<string, 
     && Array.isArray(snapshot.sources) && snapshot.sources.length > 0;
 }
 
-async function getOracleReportPdf(caseJobId: string, token: string, expectedRevision: number, draft: boolean, preliminary = false) {
+async function getOracleReportPdf(caseJobId: string, token: string, expectedRevision: number, draft: boolean, preliminary = false, audience: "external" | "internal" = "external") {
   const artifactResponse = await fetch(ADMIN_API, {
     method: "POST",
     headers: { "content-type": "application/json", "x-integritas-crm-token": token },
-    body: JSON.stringify(preliminary ? { action: "get_preliminary_pdf", caseJobId } : { action: "get_report_pdf", caseJobId, draft }),
+    body: JSON.stringify(preliminary ? { action: "get_preliminary_pdf", caseJobId } : { action: "get_report_pdf", caseJobId, draft, audience }),
     cache: "no-store",
   });
   const artifact = await artifactResponse.json().catch(() => ({}));
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
     const draft = url.searchParams.get("draft") === "1";
     if (url.searchParams.get("stage") === "preliminary") {
       const job = (Array.isArray(snapshot.jobs) ? snapshot.jobs : [])
-        .filter((row: any) => row.runtime_provider === "openclaw-oracle")
+        .filter((row: any) => ["openclaw-oracle", "ruan-native"].includes(row.runtime_provider))
         .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)))[0];
       if (!job || Number(job.case_revision) !== currentRevision)
         return NextResponse.json({ error: "Current preliminary report is unavailable." }, { status: 409 });
@@ -86,6 +87,24 @@ export async function GET(request: Request) {
         "x-integritas-report-status": "preliminary-not-clearance",
       } });
     }
+
+    const audience = reportAudience(url.searchParams.get("edition"));
+    const nativeJob = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).find((row: any) => row.id === report?.case_job_id && row.runtime_provider === "ruan-native");
+    if (nativeJob) {
+      if (!nativeReportReady(nativeJob, report, currentRevision, draft))
+        return NextResponse.json({error: "Both current report editions are available after independent review and PDF checks complete."}, {status: 409});
+      // The authenticated backend validates the exact edition against the committed
+      // native final receipt. Recheck the returned bytes before serving either PDF.
+      const pdf = await getOracleReportPdf(nativeJob.id, token, currentRevision, false, false, audience);
+      const name = caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report";
+      const label = audience === "internal" ? "INTERNAL FULL" : "Enhanced Due Diligence";
+      return new NextResponse(pdf, {status: 200, headers: {
+        "content-type": "application/pdf", "content-disposition": `${disposition}; filename="Integritas - ${label} - ${name}.pdf"`,
+        "cache-control": "no-store", "x-content-type-options": "nosniff", "x-integritas-source": "ruan-sealed-artifact",
+        "x-integritas-report-status": "finalized", "x-integritas-report-edition": audience,
+      }});
+    }
+    if (audience === "internal") return NextResponse.json({error: "An authenticated internal edition is not available for this investigation."}, {status: 409});
 
     if (!report?.content_markdown) return NextResponse.json({ error: "Report content is unavailable." }, { status: 409 });
     if (!Number.isSafeInteger(currentRevision) || Number(report.based_on_revision) !== currentRevision) {
