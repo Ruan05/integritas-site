@@ -7,7 +7,7 @@ type Props={token:string;caseId:string;caseRevision:number;existingCount:number;
 // A case or identity change unmounts all sensitive in-memory brief/file/status state.
 export function DocumentIntakePanel(props:Props){return <IntakeForm key={props.caseId+':'+props.token} {...props}/>;}
 function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
-  const [files,setFiles]=useState<File[]>([]),[question,setQuestion]=useState(''),[context,setContext]=useState('');
+  const [files,setFiles]=useState<File[]>([]),[question,setQuestion]=useState('');
   const [status,setStatus]=useState<SubmissionStatus|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
   const [error,setError]=useState(''),[replaceConfirmed,setReplaceConfirmed]=useState(false);
   const [itemFiles,setItemFiles]=useState<Record<string,File>>({});
@@ -44,11 +44,10 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
     inFlight.current=true;sequence.current++;setBusy(true);setError('');
     let beginning=false;
     try{
-      if(Array.from(question).length>3000)throw new Error('Questions must be no more than 3,000 characters.');
-      if(Array.from(context).length>6000)throw new Error('Additional information must be no more than 6,000 characters.');
+      if(Array.from(question).length>3000)throw new Error('Your message must be no more than 3,000 characters.');
       let current=latest.current;
       if(!current||current.state==='cancelled'||current.state==='expired'){
-        if(!attempt.current){validateSubmissionFiles(files);attempt.current={caseId,caseRevision,clientKey:'intake:'+crypto.randomUUID(),question,context,files,replaceConfirmed};}
+        if(!attempt.current){validateSubmissionFiles(files);attempt.current={caseId,caseRevision,clientKey:'intake:'+crypto.randomUUID(),question,context:'',files,replaceConfirmed};}
         beginning=true;current=await client.beginSubmission(token,attempt.current);beginning=false;if(!active.current)return;drafting.current=false;report(current);
       }
       if(current.state!=='open'){if(current.state==='expired'||current.state==='cancelled')attempt.current=null;await notify(current);return;}
@@ -74,7 +73,7 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
   }
   async function cancel(){
     if(!status||inFlight.current)return;inFlight.current=true;sequence.current++;setBusy(true);setError('');
-    try{const next=await client.cancelSubmission(token,status.batchId,caseId);if(active.current){report(next);attempt.current=null;setFiles([]);setItemFiles({});setQuestion('');setContext('');}}
+    try{const next=await client.cancelSubmission(token,status.batchId,caseId);if(active.current){report(next);attempt.current=null;setFiles([]);setItemFiles({});setQuestion('');}}
     catch(e){if(active.current)setError(e instanceof Error?e.message:'Could not cancel submission.');}
     finally{inFlight.current=false;if(active.current)setBusy(false);}
   }
@@ -87,18 +86,15 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
     <label htmlFor="case-documents">Case documents</label>
     <input id="case-documents" type="file" accept={INTAKE_ACCEPT} multiple disabled={busy||status?.state==='sealed'} onChange={e=>setFiles(Array.from(e.target.files??[]))}/>
     <p>Up to 20 documents per case; 50 MiB per file. Duplicate bytes are linked without deleting originals.</p>
-    <label htmlFor="intake-question">Questions for this investigation</label>
-    <textarea id="intake-question" value={question} disabled={busy||frozen} onChange={e=>setQuestion(e.target.value)} aria-describedby="intake-question-help"/>
-    <p id="intake-question-help">Optional · 3,000 characters. Leave blank to investigate all material claims in the authorized scope.</p>
-    <label htmlFor="intake-context">Additional information</label>
-    <textarea id="intake-context" value={context} disabled={busy||frozen} onChange={e=>setContext(e.target.value)} aria-describedby="intake-context-help"/>
-    <p id="intake-context-help">Optional · 6,000 characters. Treated as unverified user context, separate from evidence.</p>
+    <label htmlFor="intake-question">Message the DD agent</label>
+    <textarea id="intake-question" value={question} disabled={busy||frozen} onChange={e=>setQuestion(e.target.value)} placeholder="Add questions, background or anything you want investigated…" aria-describedby="intake-question-help"/>
+    <p id="intake-question-help">Optional · up to 3,000 characters. Your message accompanies this document submission.</p>
     <label><input type="checkbox" checked={replaceConfirmed} disabled={busy||frozen} onChange={e=>setReplaceConfirmed(e.target.checked)}/>I confirm replacing an active investigation if one exists.</label>
     {message?<p role="status">{message}</p>:null}
     {status?<p>Submission revision: {status.caseRevision}</p>:null}
     {status?.items.length?<ul aria-label="Submission files">{status.items.map(i=><li key={i.id}>{i.name} — {i.state==='verified'?'Bytes verified': 'File required'}{open&&i.state==='pending'&&!attempt.current?<label>Reselect {i.key} — {i.name}<input type="file" accept={INTAKE_ACCEPT} disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)setItemFiles(previous=>({...previous,[i.id]:file}));}}/></label>:null}</li>)}</ul>:null}
     {error?<p role="alert">{error}</p>:null}
-    {status?.state==='sealed'?<button type="button" className="secondary" disabled={busy} onClick={()=>{sequence.current++;drafting.current=true;attempt.current=null;report(null);setQuestion('');setContext('');setFiles([]);setItemFiles({});setReplaceConfirmed(false);setError('');}}>New submission</button>:null}
+    {status?.state==='sealed'?<button type="button" className="secondary" disabled={busy} onClick={()=>{sequence.current++;drafting.current=true;attempt.current=null;report(null);setQuestion('');setFiles([]);setItemFiles({});setReplaceConfirmed(false);setError('');}}>New submission</button>:null}
     {status?.state!=='sealed'?<button type="button" disabled={busy||!loaded} onClick={()=>void submit()}>{busy?'Saving submission…':open?'Resume upload':'Upload & start DD'}</button>:null}
     {open?<button type="button" className="secondary" disabled={busy} onClick={()=>void cancel()}>Cancel incomplete upload</button>:null}
     <p>Verified files seal automatically on the server. You can close the browser after acceptance. Email delivery is paused.</p>
