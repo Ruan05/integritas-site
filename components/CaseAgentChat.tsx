@@ -2,6 +2,12 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {ArrowUp,MessageSquare,ShieldCheck,Paperclip,Plus} from 'lucide-react';
 import {startVisiblePolling} from '@/lib/visible-polling.mjs';
+import {storedAssistantReply} from '@/lib/stored-chat-reply.mjs';
+
+export function AssistantMessageContent({content}:{content:string}){
+ const reply=storedAssistantReply(content);
+ return <><p className="whitespace-pre-wrap break-words">{reply.text}</p>{reply.original?<details className="mt-2 text-xs text-[#9D968F]"><summary className="min-h-11 cursor-pointer py-3">Earlier reply had a formatting issue · View original</summary><p className="whitespace-pre-wrap break-words">{reply.original}</p></details>:null}</>;
+}
 
 type Message={id:string;role:'user'|'assistant';content:string;status:string;error_code?:string;created_at:string};
 type History={messages:Message[];hasMore:boolean;memoryVersion:number;worker:{online:boolean;state:string}};
@@ -71,7 +77,7 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
    {!data?<p role="status" className="text-sm text-[#9D968F]">Loading case conversation…</p>:!data.messages.length?<p className="text-sm leading-6 text-[#9D968F]">Ask about this case, explain your concerns or add context. This conversation stays with the case.</p>:null}
    {data?.messages.map(m=><article key={m.id} className={`max-w-[94%] rounded-2xl px-4 py-3 text-sm leading-6 ${m.role==='user'?'ml-auto bg-[#D4AF37]/10 text-[#EEE5D3]':'mr-auto border border-white/8 bg-[#171715] text-[#DDD4C6]'}`}>
     <p className="mb-1 text-[10px] uppercase tracking-wider text-[#BDA76F]">{m.role==='user'?'You':'DD agent'}</p>
-    <p className="whitespace-pre-wrap break-words">{m.content}</p>
+    {m.role==='assistant'?<AssistantMessageContent content={m.content}/>:<p className="whitespace-pre-wrap break-words">{m.content}</p>}
     {m.role==='user'&&m.status==='failed'?<p role="status" className="mt-2 text-xs text-[#D9A597]">{m.error_code==='BUDGET_EXHAUSTED'?'The reply budget has been reached. Your message is saved.':'The agent could not finish this reply. Your message is saved; you can send a follow-up.'}</p>:null}
    </article>)}
    {pending?<p role="status" className="flex items-center gap-2 text-xs text-[#BDA76F]"><MessageSquare size={14} aria-hidden="true" />{data?.worker.online?'The agent is reviewing your case and conversation…':'Your message is saved. Waiting for the reply worker to reconnect…'}</p>:null}

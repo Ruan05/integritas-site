@@ -36,6 +36,15 @@ async function readCssTree(directory) {
   return contents.join("\n");
 }
 
+test("shows an older malformed response as readable prose with the original available", async () => {
+  const {AssistantMessageContent} = await vite.ssrLoadModule("/components/CaseAgentChat.tsx");
+  const content = 'The filing is unverified.\n{"reply":"The filing is unverified.","memory":';
+  const html = renderToStaticMarkup(React.createElement(AssistantMessageContent, {content}));
+  assert.match(html, /^<p[^>]*>The filing is unverified\.<\/p><details/);
+  assert.match(html, /View original/);
+  assert.match(html, /&quot;memory&quot;/);
+});
+
 test("renders the homepage hero as a seamless transparent lockup with controlled spacing", async () => {
   const [css, sourceCss, page, asset] = await Promise.all([
     readCssTree(path.join(root, "dist")),

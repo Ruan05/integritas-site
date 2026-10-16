@@ -31,3 +31,12 @@ Design: Integritas-Optimization-Autonomous-Plan-2026-10-16.md. Execute W0–W11 
 - Progress is tracked by proven gates rather than percentage.
 - Supplementary TypeScript check exposed existing errors in report-job array inference, AcceptedAttempt narrowing, missing Cloudflare runtime declarations and OpenCode Zod-default inference. Polling-specific type error corrected; build/lint/tests remain the current publication gates. Do not describe full typecheck as passing.
 - Isolated PostgreSQL test container and its newly pulled image were removed specifically after CI success. Oracle root89%,3.5GiB free; measured swap-in/out0 during2 current sampling intervals, so high swap occupancy alone is not proof of active memory thrashing.
+
+## Release checkpoint
+
+- Site v84 published successfully from d9592fc4cd7eb462b6cd0cb0e131491badff334c. Build, lint and all 63 tests passed. Deployment appgdep_6ad29b54d2f48191993214e813939626; audience remains public, MCP remains available.
+- Canonical domain smoke check loaded the public marketing page and authenticated CRM with case history, Send message, Run full DD and preliminary report links. No chat, upload or investigation was submitted.
+- Historical malformed replies still contained their old appended transport text. A conservative presentation adapter now recognizes the exact observed bare-memory-colon truncation, displays the readable prefix and provides the exact original in a labelled disclosure. It preserves valid JSON, following evidence, fenced examples and all user messages. Stored records remain untouched. Independent review found only minor false positives, now covered and corrected.
+- PR #34 reconciled the applied migration timestamp and production release record; all five CI jobs passed, merge 63a3265f1b4b4623b5067609582f29cbe7ea8978.
+- Ruan's connection rejected the authorized `sudo -n loginctl enable-linger ruan` commissioning action with `Command not allowed`. No alternate privilege path was attempted. Host lifecycle, dedicated quota and controlled restart verification remain blocked on a host-authorized management path.
+- General and attachment research, global budget settlement, paired final-report acceptance, full server commissioning and the final end-to-end canary remain incomplete. No paid DD retry or email was sent.
