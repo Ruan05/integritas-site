@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DocumentIntakePanel } from "@/components/DocumentIntakePanel";
 import { crmIntakeClient } from "@/lib/crm-intake";
 import type { SubmissionInput } from "@/lib/intake-browser";
@@ -10,6 +11,8 @@ import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportMo
 import {
   Archive,
   CheckCircle2,
+  ChevronDown,
+  LayoutDashboard,
   Download,
   FileText,
   LockKeyhole,
@@ -562,6 +565,13 @@ export default function IntegritasAdminWorkspace() {
             </p>
           </div>
 
+          <div className="mb-4 flex justify-end">
+            <button type="button" disabled title="Command center will be available soon" className="inline-flex min-h-11 items-center justify-center gap-2 border border-[#D4AF37]/35 bg-[#D4AF37]/[0.04] px-5 py-3 text-xs font-medium text-[#C5AF75] disabled:cursor-not-allowed disabled:opacity-60">
+              <LayoutDashboard size={16} aria-hidden="true" />
+              Go to command center
+            </button>
+          </div>
+
           <input
             ref={inputRef}
             type="file"
@@ -622,6 +632,67 @@ export default function IntegritasAdminWorkspace() {
 
           {notice ? <p className="mt-3 text-center text-xs leading-5 text-[#9D968F]">{notice}</p> : null}
         </div>
+
+        {/* Collapsible pattern adapted from 21st.dev/anubra266 using our existing Radix primitives. */}
+        <Collapsible className="mx-auto mt-8 max-w-3xl border border-[#D4AF37]/20 bg-[#0D0D0D]" onOpenChange={() => setArchiveMenu(null)}>
+          <CollapsibleTrigger className="group flex min-h-16 w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-[#D4AF37]/[0.04] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#D4AF37]">
+            <Archive size={18} className="shrink-0 text-[#BDA76F]" aria-hidden="true" />
+            <span className="min-w-0 flex-1 font-serif text-lg text-[#EEE5D3]">Case intake history</span>
+            <span className="shrink-0 rounded-full border border-[#D4AF37]/20 px-2.5 py-1 text-xs tabular-nums text-[#BDA76F]">{cases.length}</span>
+            <ChevronDown size={18} className="shrink-0 text-[#BDA76F] transition-transform duration-200 group-data-[state=open]:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="border-t border-white/8 px-5 pb-5 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none">
+            <div className="flex items-center justify-between gap-4 py-4">
+              <h2 className="text-xs text-[#A59D94]">Previous investigations</h2>
+              <button type="button" onClick={resetNew} className="inline-flex min-h-11 items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#A59D94] hover:text-[#D4AF37]">
+                <Plus size={13} aria-hidden="true" /> New
+              </button>
+            </div>
+            {cases.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {cases.map((item) => {
+                  const held = Boolean(item.latest_report
+                    && reportNeedsHold(item.latest_report.summary || "", item.latest_report.content_markdown || ""));
+                  const archiveStatus = held
+                    ? "HOLD — INCOMPLETE"
+                    : item.latest_report?.status || item.latest_job?.stage || item.status || "In progress";
+                  return (
+                  <div
+                    key={item.id}
+                    className={`relative border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
+                  >
+                    <button type="button" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="block w-full pr-10 text-left">
+                      <p className={`truncate text-sm ${held ? "text-[#D9A597]" : "text-[#DDD4C6]"}`}>{item.title}</p>
+                      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
+                        <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
+                        <span className={held ? "text-[#D9A597]" : ""}>{archiveStatus}</span>
+                      </div>
+                      {item.latest_report?.summary ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#8F8981]">{item.latest_report.summary}</p> : null}
+                      {!item.latest_report?.summary && item.latest_job?.stage ? <p className="mt-3 text-xs leading-5 text-[#8F8981]">{item.latest_job.stage.replaceAll("_", " ")} · {item.latest_job.progress ?? 0}%</p> : null}
+                    </button>
+                    <div className="absolute right-3 top-3">
+                      <button type="button" aria-label={`Options for ${item.title}`} title="Investigation options" onClick={() => setArchiveMenu((current) => current === item.id ? null : item.id)} className="inline-flex size-9 items-center justify-center text-[#A59D94] hover:bg-white/5 hover:text-[#E4C45F]">
+                        <MoreHorizontal size={17} aria-hidden="true" />
+                      </button>
+                      {archiveMenu === item.id ? (
+                        <div role="menu" className="absolute right-0 z-10 mt-1 w-44 border border-white/10 bg-[#151515] p-1 shadow-2xl">
+                          <button type="button" role="menuitem" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="flex w-full items-center px-3 py-2 text-left text-xs text-[#DDD4C6] hover:bg-white/5">Open investigation</button>
+                          <button type="button" role="menuitem" onClick={() => void archiveCase(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Archive size={13} aria-hidden="true" /> Archive (keep evidence)</button>
+                          <button type="button" role="menuitem" onClick={() => void deleteCasePermanently(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Trash2 size={13} aria-hidden="true" /> Permanently delete</button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="border border-white/8 bg-[#0D0D0D] p-6 text-sm text-[#7F7871]">
+                Completed investigations will appear here automatically.
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
 
         {activeCase && currentSnapshot?.case && !submitting ? <div className="mx-auto mt-8 max-w-3xl">
           <h2 className="mb-3 font-serif text-xl">Submission · {activeCase.title}</h2>
@@ -764,66 +835,6 @@ export default function IntegritasAdminWorkspace() {
             ) : null}
           </section>
         ) : null}
-
-        <section className="mx-auto mt-12 max-w-5xl border-t border-white/8 pt-8">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-[#BDA76F]">
-                <Archive size={16} />
-                <p className="text-[10px] uppercase tracking-[0.2em]">Archive</p>
-              </div>
-              <h2 className="mt-2 font-serif text-2xl">Previous investigations</h2>
-            </div>
-            <button type="button" onClick={resetNew} className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#A59D94] hover:text-[#D4AF37]">
-              <Plus size={13} />
-              New
-            </button>
-          </div>
-
-          {cases.length ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {cases.map((item) => {
-                const held = Boolean(item.latest_report
-                  && reportNeedsHold(item.latest_report.summary || "", item.latest_report.content_markdown || ""));
-                const archiveStatus = held
-                  ? "HOLD — INCOMPLETE"
-                  : item.latest_report?.status || item.latest_job?.stage || item.status || "In progress";
-                return (
-                <div
-                  key={item.id}
-                  className={`relative border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
-                >
-                  <button type="button" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="block w-full pr-10 text-left">
-                    <p className={`truncate text-sm ${held ? "text-[#D9A597]" : "text-[#DDD4C6]"}`}>{item.title}</p>
-                    <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
-                      <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
-                      <span className={held ? "text-[#D9A597]" : ""}>{archiveStatus}</span>
-                    </div>
-                    {item.latest_report?.summary ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#8F8981]">{item.latest_report.summary}</p> : null}
-                    {!item.latest_report?.summary && item.latest_job?.stage ? <p className="mt-3 text-xs leading-5 text-[#8F8981]">{item.latest_job.stage.replaceAll("_", " ")} · {item.latest_job.progress ?? 0}%</p> : null}
-                  </button>
-                  <div className="absolute right-3 top-3">
-                    <button type="button" aria-label={`Options for ${item.title}`} title="Investigation options" onClick={() => setArchiveMenu((current) => current === item.id ? null : item.id)} className="inline-flex size-9 items-center justify-center text-[#A59D94] hover:bg-white/5 hover:text-[#E4C45F]">
-                      <MoreHorizontal size={17} aria-hidden="true" />
-                    </button>
-                    {archiveMenu === item.id ? (
-                      <div role="menu" className="absolute right-0 z-10 mt-1 w-44 border border-white/10 bg-[#151515] p-1 shadow-2xl">
-                        <button type="button" role="menuitem" onClick={() => { setArchiveMenu(null); setActiveCaseId(item.id); }} className="flex w-full items-center px-3 py-2 text-left text-xs text-[#DDD4C6] hover:bg-white/5">Open investigation</button>
-                        <button type="button" role="menuitem" onClick={() => void archiveCase(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Archive size={13} aria-hidden="true" /> Archive (keep evidence)</button>
-                        <button type="button" role="menuitem" onClick={() => void deleteCasePermanently(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Trash2 size={13} aria-hidden="true" /> Permanently delete</button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="border border-white/8 bg-[#0D0D0D] p-6 text-sm text-[#7F7871]">
-              Completed investigations will appear here automatically.
-            </div>
-          )}
-        </section>
       </section>
     </main>
   );
