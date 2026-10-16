@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DocumentIntakePanel } from "@/components/DocumentIntakePanel";
+import CaseAgentChat, { caseChatRequest } from "@/components/CaseAgentChat";
 import { crmIntakeClient } from "@/lib/crm-intake";
 import type { SubmissionInput } from "@/lib/intake-browser";
 import InvestigationReport from "@/components/InvestigationReport";
@@ -520,6 +521,12 @@ export default function IntegritasAdminWorkspace() {
         ? "Evidence accepted. The investigation will start when its approved worker is available. You can close this page. Email is paused."
         : "Upload is incomplete. Resume the required files in this case below.");
       if (submission.state === "sealed") {
+        try {
+          await caseChatRequest({action:"chat_send",caseId:attempt.caseId,clientKey:attempt.clientKey+":chat",message:attempt.question.trim()||"Please explain what has been received for this case and what the investigation will cover."});
+          setNotice("Documents accepted. Your DD agent will reply in the case conversation below.");
+        } catch {
+          setNotice("Documents accepted. Open the case conversation below to message your DD agent.");
+        }
         acceptedAttempt.current = null; setFiles([]); setQuestion("");
         if (inputRef.current) inputRef.current.value = "";
       }
@@ -625,6 +632,8 @@ export default function IntegritasAdminWorkspace() {
 
           {notice ? <p className="mt-3 text-center text-xs leading-5 text-[#9D968F]">{notice}</p> : null}
         </div>
+
+        {activeCase ? <CaseAgentChat key={activeCase.id} caseId={activeCase.id} title={activeCase.title} /> : null}
 
         {/* Collapsible pattern adapted from 21st.dev/anubra266 using our existing Radix primitives. */}
         <Collapsible className="mx-auto mt-8 max-w-3xl border border-[#D4AF37]/20 bg-[#0D0D0D]" onOpenChange={() => setArchiveMenu(null)}>

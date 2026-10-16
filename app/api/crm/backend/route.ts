@@ -6,6 +6,8 @@ export const dynamic = "force-dynamic";
 
 const ADMIN_API = "https://leuixjgmlueptefintgo.supabase.co/functions/v1/integritas-admin-api";
 const CONTROL_API = "https://leuixjgmlueptefintgo.supabase.co/functions/v1/integritas-control";
+const CHAT_API = "https://leuixjgmlueptefintgo.supabase.co/functions/v1/integritas-case-chat";
+const CHAT_ACTIONS = new Set(["chat_history", "chat_send", "chat_context"]);
 const CONTROL_ACTIONS = new Set([
   "runtime_status",
   "command_status",
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
     const action = String(body.action || "");
     if (!action) return noStore({ error: "Action is required." }, 400);
 
-    const target = CONTROL_ACTIONS.has(action) ? CONTROL_API : ADMIN_API;
+    const target = CHAT_ACTIONS.has(action) ? CHAT_API : CONTROL_ACTIONS.has(action) ? CONTROL_API : ADMIN_API;
     const response = await fetch(target, {
       method: "POST",
       headers: {

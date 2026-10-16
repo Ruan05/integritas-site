@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
+import {caseChatRequest} from '@/components/CaseAgentChat';
 import {INTAKE_ACCEPT,intakeMime,validateSubmissionFiles} from '@/lib/intake-browser';
 import type {IntakeClient,SubmissionInput,SubmissionStatus} from '@/lib/intake-browser';
 
@@ -47,7 +48,13 @@ function IntakeForm({token,caseId,caseRevision,client,onChanged}:Props){
       if(Array.from(question).length>3000)throw new Error('Your message must be no more than 3,000 characters.');
       let current=latest.current;
       if(!current||current.state==='cancelled'||current.state==='expired'){
-        if(!attempt.current){validateSubmissionFiles(files);attempt.current={caseId,caseRevision,clientKey:'intake:'+crypto.randomUUID(),question,context:'',files,replaceConfirmed};}
+        if(!attempt.current){
+          validateSubmissionFiles(files);
+          const recalled=await caseChatRequest({action:'chat_context',caseId});
+          if(!active.current)return;
+          // Freeze recalled history with the accepted brief, including during network retries.
+          attempt.current={caseId,caseRevision,clientKey:'intake:'+crypto.randomUUID(),question,context:recalled.context||'',files,replaceConfirmed};
+        }
         beginning=true;current=await client.beginSubmission(token,attempt.current);beginning=false;if(!active.current)return;drafting.current=false;report(current);
       }
       if(current.state!=='open'){if(current.state==='expired'||current.state==='cancelled')attempt.current=null;await notify(current);return;}
