@@ -552,15 +552,17 @@ export default function IntegritasAdminWorkspace() {
       if (submission.state === "sealed") {
         try {
           await caseChatRequest({action:"chat_send",caseId:attempt.caseId,clientKey:attempt.clientKey+":chat",message:attempt.question.trim()||"Please explain what has been received for this case and what the investigation will cover."});
-          setNotice("Documents accepted. The live DD workflow is running with your documents and brief; its progress and report will appear here.");
+          setNotice("Documents accepted. Your case is queued for the full DD workflow; progress and reports will appear here.");
         } catch {
-          setNotice("Documents accepted. The live DD workflow is running; its progress and report will appear here.");
+          setNotice("Documents accepted. Your case is queued for the full DD workflow; progress and reports will appear here.");
         }
         acceptedAttempt.current = null; setAttemptFrozen(false); setFiles([]); setQuestion(""); setNewCaseMode(false);
         if (inputRef.current) inputRef.current.value = "";
       }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      setNotice(message);
+      throw new Error(message);
     } finally { creating.current = false; setSubmitting(false); }
   };
 
