@@ -80,6 +80,7 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(backend, /INTEGRITAS_CRM_BACKEND_TOKEN/);
   assert.match(backend, /x-integritas-crm-token/);
   assert.match(workspace, /Upload documents and add information for your DD/);
+  assert.doesNotMatch(workspace, /<button\b(?=[^>]*\sdisabled(?:\s|=|>))[^>]*>(?:(?!<\/button>)[\s\S])*?Go to command center(?:(?!<\/button>)[\s\S])*<\/button>/);
   assert.match(chat, /Run full DD/);
   assert.match(chat, /Send message/);
   assert.match(workspace, /buildFullDDSubmissionFiles\(files, question\)/);

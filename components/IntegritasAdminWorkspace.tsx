@@ -14,7 +14,6 @@ import {
   Archive,
   CheckCircle2,
   ChevronDown,
-  LayoutDashboard,
   Download,
   FileText,
   LockKeyhole,
@@ -651,13 +650,6 @@ export default function IntegritasAdminWorkspace() {
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#9D968F]">
               Upload your documents and tell the DD agent what you need to know.
             </p>
-          </div>
-
-          <div className="mb-4 flex justify-end">
-            <button type="button" disabled title="Command center will be available soon" className="inline-flex min-h-11 items-center justify-center gap-2 border border-[#D4AF37]/35 bg-[#D4AF37]/[0.04] px-5 py-3 text-xs font-medium text-[#C5AF75] disabled:cursor-not-allowed disabled:opacity-60">
-              <LayoutDashboard size={16} aria-hidden="true" />
-              Go to command center
-            </button>
           </div>
 
           <CaseAgentChat
