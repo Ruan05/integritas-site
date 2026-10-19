@@ -1,3 +1,4 @@
+import { oraclePairReady } from "@/lib/oracle-report-pair";
 import { nativeReportReady, reportAudience } from "@/lib/native-report-download";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -33,7 +34,6 @@ function meetsComprehensiveReportGate(content: string, snapshot: Record<string, 
   const escapedControls = (text.match(/\\\\[nrt]/g) || []).length;
   return hasVerifiedMaximumDepthStructure(model, text)
     && escapedControls <= 3
-    && Array.isArray(snapshot.documents) && snapshot.documents.length > 0
     && Array.isArray(snapshot.findings)
     && Array.isArray(snapshot.sources) && snapshot.sources.length > 0;
 }
@@ -124,7 +124,7 @@ export async function GET(request: Request) {
         "x-integritas-report-status": "finalized", "x-integritas-report-edition": audience,
       }});
     }
-    if (audience === "internal") return NextResponse.json({error: "An authenticated internal edition is not available for this investigation."}, {status: 409});
+    if (audience === "internal" && draft) return NextResponse.json({error: "The internal full edition requires a committed final report pair."}, {status: 409});
 
     if (!report?.content_markdown) return NextResponse.json({ error: "Report content is unavailable." }, { status: 409 });
     if (!Number.isSafeInteger(currentRevision) || Number(report.based_on_revision) !== currentRevision) {
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Only a current draft or reviewed report can be opened as an internal draft PDF." }, { status: 409 });
       }
     } else {
-      if (report.status !== "finalized") {
+      if (!oraclePairReady(job, report, snapshot.reportPairs, currentRevision)) {
         return NextResponse.json({ error: "The final report is released automatically after independent review and artifact checks pass. Those checks are still pending." }, { status: 409 });
       }
       if (reportNeedsHold(String(report.summary || ""), String(report.content_markdown))) {
@@ -160,8 +160,8 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "The source investigation has not completed." }, { status: 409 });
       }
     }
-    const pdf = await getOracleReportPdf(String(report.case_job_id), token, Number(report.based_on_revision), draft);
-    const filename = `Integritas - ${caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report"}.pdf`;
+    const pdf = await getOracleReportPdf(String(report.case_job_id), token, Number(report.based_on_revision), draft, false, audience);
+    const filename = `Integritas - ${audience === "internal" ? "INTERNAL FULL - " : ""}${caseTitle.replace(/[^a-z0-9 _-]+/gi, "").slice(0, 80) || "Report"}.pdf`;
     return new NextResponse(pdf, {
       status: 200,
       headers: {
@@ -170,6 +170,7 @@ export async function GET(request: Request) {
         "cache-control": "no-store",
         "x-content-type-options": "nosniff",
         "x-integritas-source": "oracle-sealed-artifact",
+        "x-integritas-report-edition": audience,
         "x-integritas-report-status": draft ? "draft-review-required" : "finalized",
       },
     });

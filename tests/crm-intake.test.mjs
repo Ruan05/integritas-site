@@ -6,6 +6,8 @@ after(()=>vite.close());
 const {createIntakeBrowserClient}=await vite.ssrLoadModule('/lib/intake-browser.ts');
 const {nativeReportReady,reportAudience}=await vite.ssrLoadModule('/lib/native-report-download.ts');
 
+const {oraclePairReady}=await vite.ssrLoadModule('/lib/oracle-report-pair.ts');
+
 test('lost upload acknowledgements reconcile without reuploading evidence',async()=>{
   const calls=[];let uploads=0;
   const client=createIntakeBrowserClient(async(_token,body)=>{calls.push(body.action);return {state:'sealed'};},async()=>{uploads++;},'https://project.supabase.co/functions/v1/admin');
@@ -36,4 +38,16 @@ test('final native downloads reject stale, unfinished and mismatched report edit
   assert.equal(nativeReportReady(job,report,4,true),false);
   assert.equal(reportAudience('internal'),'internal');assert.equal(reportAudience(null),'external');
   assert.throws(()=>reportAudience('all'),/Unsupported/);
+});
+
+test('Oracle final controls require both current editions from the same atomic receipt',()=>{
+  const job={id:'job',case_id:'case',case_revision:2,stage:'completed',runtime_provider:'openclaw-oracle'};
+  const report={id:'report',case_id:'case',case_job_id:'job',based_on_revision:2,status:'finalized',finalization_method:'automated_independent_review',report_model_sha256:'model'};
+  const pair={report_id:'report',case_id:'case',case_job_id:'job',case_revision:2,report_model_sha256:'model',external_sha256:'e'.repeat(64),internal_sha256:'f'.repeat(64)};
+  assert.equal(oraclePairReady(job,report,[pair],2),true);
+  assert.equal(oraclePairReady(job,report,[],2),false);
+  assert.equal(oraclePairReady(job,report,[pair],3),false);
+  assert.equal(oraclePairReady(job,report,[{...pair,case_id:'another'}],2),false);
+  assert.equal(oraclePairReady(job,report,[{...pair,internal_sha256:pair.external_sha256}],2),false);
+  assert.equal(oraclePairReady(job,{...report,report_model_sha256:'different'},[pair],2),false);
 });

@@ -1,4 +1,5 @@
 "use client";
+import { oraclePairReady, type OracleReportPair } from "@/lib/oracle-report-pair";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -80,6 +81,7 @@ type ReportRow = {
 type PreliminaryRow = { case_id: string; case_job_id: string; case_revision: number; sha256: string; created_at: string; safe_metadata?: { release_mode?: string; final?: boolean; issued_at?: string } };
 
 type Snapshot = {
+  reportPairs?: OracleReportPair[];
   preliminaryReports?: PreliminaryRow[];
   case?: CaseRow & Record<string, unknown>;
   documents?: Array<{ id: string; name: string; created_at: string; sha256?: string }>;
@@ -300,8 +302,9 @@ export default function IntegritasAdminWorkspace() {
   const modelEligible = reportEligibleForFinalization(verifiedModel);
   const nativeFinalized = job?.runtime_provider === "ruan-native" && job.stage === "completed"
     && report?.finalization_method === "automated_independent_review";
+  const oraclePairFinalized = oraclePairReady(job, report, snapshot?.reportPairs, Number(snapshot?.case?.revision));
   const reportFinalized = reportMatchesCurrentJob && report?.status === "finalized"
-    && (nativeFinalized || (!reportIncomplete && modelEligible));
+    && (nativeFinalized || (oraclePairFinalized && !reportIncomplete && modelEligible));
   const reportDraftPdfReady = Boolean(reportMatchesCurrentJob && report
     && ["draft", "reviewed"].includes(report.status)
     && verifiedModel?.quality.report_structure === "maximum_depth_edd_28_v1_verified"
@@ -865,7 +868,7 @@ export default function IntegritasAdminWorkspace() {
                       <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&download=1`} download className="inline-flex h-11 items-center gap-2 bg-[#D4AF37] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#080808] hover:bg-[#E4C45F]">
                         <Download size={14} /> Download Enhanced Due Diligence
                       </a>
-                      {job?.runtime_provider === "ruan-native" ? <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&edition=internal&download=1`} download className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F]"><Download size={14} /> Download INTERNAL FULL</a> : null}
+                      {nativeFinalized || oraclePairFinalized ? <a href={`/api/crm/report?caseId=${encodeURIComponent(activeCaseId)}&edition=internal&download=1`} download className="inline-flex h-11 items-center gap-2 border border-[#D4AF37]/40 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E4C45F]"><Download size={14} /> Download INTERNAL FULL</a> : null}
                     </>
                   ) : null}
                   {reportDraftPdfReady ? (
