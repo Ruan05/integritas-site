@@ -74,3 +74,14 @@ test('case chat keeps Send message separate from Run full DD', async () => {
   assert.match(html, />Run full DD</);
   assert.match(html, /Send a question for a researched reply/);
 });
+
+test('general conversation offers Send message without creating a case', async () => {
+  const {default: CaseAgentChat} = await vite.ssrLoadModule('/components/CaseAgentChat.tsx');
+  const html = renderToStaticMarkup(React.createElement(CaseAgentChat, {
+    draft:'Hello', onDraftChange() {}, attachments:null, fileCount:0, uploadBusy:false, frozen:false,
+    onAttach() {}, async onStart() {}, onNew() {},
+  }));
+  assert.match(html, />Send message</);
+  assert.match(html, /General conversation/);
+  assert.match(html, />Run full DD</);
+});
