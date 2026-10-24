@@ -6,6 +6,7 @@ import {factQualification} from '@/lib/dashboard-search.mjs';
 import {entityLocation} from '@/lib/dashboard-model.mjs';
 
 type Entity={id:string;display_name:string;identifiers?:Record<string,unknown>};
+const safeExternalImageUrl=(value:unknown)=>{try{const url=new URL(String(value));return url.protocol==='https:'?url.href:null;}catch{return null;}};
 export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}}:{entities:Entity[];onEntity?:(id:string)=>void;expanded?:boolean;data?:Record<string,any>}){
  const host=useRef<HTMLDivElement>(null),credits=useRef<HTMLDivElement>(null),streetHost=useRef<HTMLDivElement>(null),viewerRef=useRef<any>(null),engine=useRef<any>(null),effects=useRef<any>(null),streetLayer=useRef<any>(null);
  const [style,setStyle]=useState('normal'),[showLocations,setShowLocations]=useState(true);
@@ -39,7 +40,7 @@ export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}
     handler=new C.ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction((movement:any)=>{const picked=viewer.scene.pick(movement.position);if(picked?.id?.properties?.crmId)navigate.current?.(String(picked.id.properties.crmId.getValue()));},C.ScreenSpaceEventType.LEFT_CLICK);
     viewer.scene.renderError.addEventListener(()=>{if(!stopped)setError('The 3D view stopped rendering. Use the location register below or reload the page.');});
-    if(!stopped){setState('Source: OpenStreetMap · case locations require evidence');setWorldReady(true);}
+    if(!stopped){setState('Source: OpenStreetMap · DD pins require evidence-backed coordinates');setWorldReady(true);}
    }catch{if(!stopped)setError('This browser could not start the 3D world view. The location register is available below.');}
   };void begin();
   return()=>{stopped=true;effects.current?.destroy();effects.current=null;handler?.destroy();disposePinch?.();if(viewer&&!viewer.isDestroyed())viewer.destroy();viewerRef.current=null;};
@@ -87,12 +88,12 @@ export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}
   <div className="world-status" role="status">{error||state}</div><div ref={credits} className="world-credits"/>
   <section className="street-imagery" aria-label="Community street imagery">
    <div className="street-imagery-copy"><div><p className="dash-eyebrow">Community street imagery</p><h3>Street level</h3><p>Browse public Panoramax photos and 360° views where community coverage exists. Coverage varies by place and date.</p></div>
-    <button className="dash-button" aria-pressed={streetActive} disabled={!streetActive&&!streetConsent} onClick={()=>{setStreetError('');if(streetActive){setStreetActive(false);setStreetUi(null);}else setStreetActive(true);}}>{streetActive?'Hide street imagery':'Enable Panoramax'}</button></div>
-   {!streetActive?<div className="street-consent"><p>Enabling this sends the current globe area and zoom to Panoramax’s public API to find photos and coverage. It sends map coordinates only; CRM folders, case names, evidence and documents are not sent. Coverage varies by place. Photo creator credits and licences stay with each image.</p><label><input type="checkbox" checked={streetConsent} onChange={e=>setStreetConsent(e.target.checked)}/> I understand the current map view is shared with Panoramax.</label></div>:<>
+    <button className="dash-button" aria-pressed={streetActive} disabled={!worldReady||(!streetActive&&!streetConsent)} onClick={()=>{setStreetError('');if(streetActive){setStreetActive(false);setStreetUi(null);}else setStreetActive(true);}}>{streetActive?'Hide street imagery':worldReady?'Enable Panoramax':'Loading map…'}</button></div>
+   {!streetActive?<div className="street-consent"><p>Panoramax community photos and 360° views are captured imagery, not live video or road cameras. Enabling coverage or searching near a DD location sends the globe area, zoom or selected coordinates to Panoramax’s public API and federated photo hosts. Only the location query is sent; CRM folders, case names, evidence and documents are not. Coverage varies by place. Each photo keeps its creator credit and licence.</p><label><input type="checkbox" checked={streetConsent} onChange={e=>setStreetConsent(e.target.checked)}/> I understand the globe area or selected DD coordinates may be shared with Panoramax.</label></div>:<>
     <div className="street-imagery-toolbar"><span role="status">{streetUi?.coverage?.loading?'Loading coverage…':streetUi?.coverage?.count?`${streetUi.coverage.count} coverage segments in view`:streetUi?.coverage?.hint||'Checking community coverage for this view'}</span><button className="dash-button" disabled={!!streetUi?.street?.loading} onClick={()=>void streetLayer.current?.openNearest(nearestPoint||undefined,{providerIds:['panoramax'],frame:false})}>{streetUi?.street?.loading?'Finding imagery…':nearestPoint?'Find photo at selected DD location':'Find photo at map center'}</button><button className="dash-button" onClick={()=>streetLayer.current?.closeViewer()} disabled={!streetUi?.street?.open}>Close photo</button></div>
     {streetError||streetUi?.coverage?.error||streetUi?.street?.error?<p className="street-feedback" role="status">{streetError||streetUi?.coverage?.error||streetUi?.street?.error}</p>:null}
     <div className="street-viewer" ref={streetHost} aria-label="Panoramax street photo viewer"/>
-    {streetUi?.street?.open?<p className="street-credit">{streetUi.street.creator?`Photo by ${streetUi.street.creator}`:'Panoramax community photo'}{streetUi.street.license?` · ${streetUi.street.license}`:''}{streetUi.street.capturedAt?` · captured ${streetUi.street.capturedAt}`:''}{streetUi.street.externalUrl?<a href={streetUi.street.externalUrl} target="_blank" rel="noreferrer">Open original</a>:null}</p>:null}
+    {streetUi?.street?.open?<p className="street-credit">{streetUi.street.creator?`Photo by ${streetUi.street.creator}`:'Panoramax community photo'}{streetUi.street.license?` · ${streetUi.street.license}`:''}{streetUi.street.capturedAt?` · captured ${streetUi.street.capturedAt}`:''}{safeExternalImageUrl(streetUi.street.externalUrl)?<a href={safeExternalImageUrl(streetUi.street.externalUrl)!} target="_blank" rel="noreferrer">Open original</a>:null}</p>:null}
     <p className="street-credit">Street-level imagery: Panoramax community catalogue · per-photo credits and licences shown with each image.</p>
    </>}
   </section>
