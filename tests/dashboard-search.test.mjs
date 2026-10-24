@@ -24,3 +24,7 @@ test('identity links require matching registry identifier, jurisdiction, verific
  const a={id:'a',case_id:'ca',entity_type:'company',match_status:'verified',identifiers:{identity:{registration_number:'123',jurisdiction:'ZA',source_key:'s'}}},b={...a,id:'b',case_id:'cb'},data={sources:[{case_id:'ca',source_key:'s'},{case_id:'cb',source_key:'s'}]};
  assert.equal(verifiedIdentityPeers(a,[a,b],data).length,1);assert.equal(verifiedIdentityPeers(a,[a,{...b,match_status:'proposed'}],data).length,0);
 });
+test('unknown risk sorts last in both directions and resolved issues do not inflate rank',async()=>{
+ const {compareRisk}=await import('../lib/dashboard-search.mjs');const entities=[{id:'u',display_name:'Unknown'},{id:'h',display_name:'High'},{id:'l',display_name:'Low'}],findings=[{entity_id:'h',materiality:'high'},{entity_id:'l',materiality:'low'},{entity_id:'l',materiality:'critical',resolved:true}];
+ assert.deepEqual([...entities].sort((a,b)=>compareRisk(a,b,findings,'low')).map(e=>e.id),['l','h','u']);assert.deepEqual([...entities].sort((a,b)=>compareRisk(a,b,findings,'high')).map(e=>e.id),['h','l','u']);
+});

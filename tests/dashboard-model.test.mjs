@@ -25,3 +25,7 @@ test('case-list fallback defines every collection before the dashboard snapshot 
  for(const key of ['documents','records','links','history','preferences','sources','relationships','findings','checks','jobs','pairs','prospects'])assert.equal(Array.isArray(data[key]),true,key+' must be a collection during initial/deep-link load');
  assert.equal(data.documents.filter(d=>d.case_id==='new-case').length,0);assert.equal(data.cases[0].gates.length,12);
 });
+test('CSV exports quote content and neutralize formula prefixes including leading whitespace',async()=>{
+ const {serializeCsv}=await import('../lib/dashboard-model.mjs');const csv=serializeCsv([['Name','Value'],['Example, quoted',' =HYPERLINK("https://example.org")'],['Plain','100']]);
+ assert.match(csv,/"Example, quoted","' =HYPERLINK\(""https:\/\/example.org""\)"/);assert.match(csv,/"Plain","100"/);
+});
