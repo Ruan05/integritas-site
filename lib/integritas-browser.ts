@@ -1,3 +1,4 @@
+import {readJsonObject} from './json-response';
 export const MAX_CASE_DOCUMENTS = 20;
 export const SUPPORTED_CASE_FILE_ACCEPT = '.pdf,.png,.jpg,.jpeg,.txt,.md,.csv';
 export const MAX_CASE_FILE_BYTES = 50 * 1024 * 1024;
@@ -94,7 +95,7 @@ export function createIntegritasBrowserClient(options: BrowserClientOptions) {
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readJsonObject(response);
     if (!response.ok) throw new Error(String(payload?.error || 'Admin request failed.'));
     return payload;
   }
@@ -104,7 +105,7 @@ export function createIntegritasBrowserClient(options: BrowserClientOptions) {
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readJsonObject(response);
     if (!response.ok) throw new Error(String(payload?.error || 'Control request failed.'));
     return payload;
   }
@@ -152,7 +153,7 @@ export function createIntegritasBrowserClient(options: BrowserClientOptions) {
           headers: { authorization: `Bearer ${token}` },
           body: form,
         });
-        const payload = await response.json().catch(() => ({}));
+        const payload = await readJsonObject(response);
         if (!response.ok) throw new Error(String(payload?.error || `Upload failed for ${file.name}.`));
         results.push(payload);
       }
@@ -174,7 +175,7 @@ export function createIntegritasBrowserClient(options: BrowserClientOptions) {
           idempotency_key: input.idempotencyKey,
         }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await readJsonObject(response);
       if (!response.ok) {
         throw new Error(String(payload?.error || 'Investigation start failed.'));
       }

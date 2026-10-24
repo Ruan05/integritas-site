@@ -45,7 +45,8 @@ async function getOracleReportPdf(caseJobId: string, token: string, expectedRevi
     body: JSON.stringify(preliminary ? { action: "get_preliminary_pdf", caseJobId } : { action: "get_report_pdf", caseJobId, draft, audience }),
     cache: "no-store",
   });
-  const artifact = await artifactResponse.json().catch(() => ({}));
+  const rawArtifact = await artifactResponse.json().catch(() => ({}));
+  const artifact: Record<string, any> = rawArtifact && typeof rawArtifact === "object" && !Array.isArray(rawArtifact) ? rawArtifact : {};
   if (!artifactResponse.ok || typeof artifact.url !== "string") {
     throw Object.assign(new Error("Oracle's canonical report PDF is not available."), {
       status: artifactResponse.status === 404 ? 409 : 502,
@@ -83,14 +84,15 @@ export async function GET(request: Request) {
       body: JSON.stringify({ action: "snapshot", caseId }),
       cache: "no-store",
     });
-    const snapshot = await response.json().catch(() => ({}));
+    const rawSnapshot = await response.json().catch(() => ({}));
+    const snapshot: Record<string, any> = rawSnapshot && typeof rawSnapshot === "object" && !Array.isArray(rawSnapshot) ? rawSnapshot : {};
     if (!response.ok) return NextResponse.json({ error: "Report is unavailable." }, { status: response.status });
     const report = Array.isArray(snapshot.reports) ? snapshot.reports[0] : null;
     const caseTitle = String(snapshot.case?.title || "Integritas investigation");
     const currentRevision = Number(snapshot.case?.revision);
     const draft = url.searchParams.get("draft") === "1";
     if (url.searchParams.get("stage") === "preliminary") {
-      const jobs = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).filter(isReportJob);
+      const jobs: ReportJob[] = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).filter(isReportJob);
       const job = jobs
         .filter((row) => ["openclaw-oracle", "ruan-native"].includes(row.runtime_provider))
         .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
@@ -108,7 +110,7 @@ export async function GET(request: Request) {
     }
 
     const audience = reportAudience(url.searchParams.get("edition"));
-    const jobs = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).filter(isReportJob);
+    const jobs: ReportJob[] = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).filter(isReportJob);
     const nativeJob = jobs.find((row) => row.id === report?.case_job_id && row.runtime_provider === "ruan-native");
     if (nativeJob) {
       if (!nativeReportReady(nativeJob, report, currentRevision, draft))
@@ -132,7 +134,7 @@ export async function GET(request: Request) {
     }
     const model = await verifyReportModel(report);
     const job = jobs.find((row) => row.id === report.case_job_id) ?? null;
-    if (!['completed', 'incomplete'].includes(String(job?.stage)) || Number(job?.case_revision) !== currentRevision) {
+    if (!job || !['completed', 'incomplete'].includes(String(job.stage)) || Number(job.case_revision) !== currentRevision) {
       return NextResponse.json({ error: "The source investigation report is not available for this case revision." }, { status: 409 });
     }
     if (!/^[0-9a-f-]{36}$/i.test(String(report.case_job_id || ""))

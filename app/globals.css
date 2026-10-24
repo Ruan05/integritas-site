@@ -45,8 +45,8 @@
   --color-muted: #A9A39A;
   --color-softgray: #2A2A2A;
   --color-card-border: rgba(212, 175, 55, 0.25);
-  --font-sans: var(--font-sans);
-  --font-serif: var(--font-serif);
+  --font-sans: "Integritas Body";
+  --font-serif: "Integritas Display";
 }
 
 @layer base {
@@ -57,6 +57,8 @@
   }
 
   html {
+    scrollbar-color: #2A2A2A #0A0A0A;
+    scrollbar-width: thin;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

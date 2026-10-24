@@ -1,4 +1,7 @@
 "use client";
+import {ThinkingOrb} from './dashboard/ThinkingOrb';
+import {readJsonObject} from '@/lib/json-response';
+
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {ArrowUp,MessageSquare,ShieldCheck,Paperclip,Plus} from 'lucide-react';
 import {startVisiblePolling} from '@/lib/visible-polling.mjs';
@@ -13,7 +16,7 @@ type Message={id:string;role:'user'|'assistant';content:string;status:string;err
 type History={messages:Message[];hasMore:boolean;memoryVersion:number;worker:{online:boolean;state:string};admission?:{enabled:boolean;reason:string|null}};
 export async function caseChatRequest(body:Record<string,unknown>){
  const response=await fetch('/api/crm/backend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
- const data=await response.json().catch(()=>({}));
+ const data=await readJsonObject(response);
  if(!response.ok)throw new Error(data.error||'The case conversation could not be loaded.');return data;
 }
 type Props={caseId?:string;title?:string;draft:string;onDraftChange:(value:string)=>void;attachments:ReactNode;fileCount:number;uploadBusy:boolean;frozen:boolean;onAttach:()=>void;onStart:()=>Promise<void>;onNew:()=>void};
@@ -67,7 +70,7 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
  return <section aria-label="Integritas DD agent" className="overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#10100F] shadow-xl shadow-black/20 focus-within:border-[#D4AF37]/50">
   <div className="flex items-center gap-3 border-b border-white/8 px-5 py-4">
    <ShieldCheck size={20} className="shrink-0 text-[#D4AF37]" aria-hidden="true" />
-   <div className="min-w-0 flex-1"><h2 className="text-sm font-medium text-[#EEE5D3]">Integritas DD agent</h2><p className="mt-1 truncate text-xs text-[#9D968F]">{title||(caseId?'Case conversation':'General conversation')}</p></div>
+   <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><ThinkingOrb size={42} mode={busy||uploadBusy?"thinking":"idle"}/><h2 className="text-sm font-medium text-[#EEE5D3]">Evidence-led DD assistant</h2></div><p className="mt-1 truncate text-xs text-[#9D968F]">{title||(caseId?'Case conversation':'General conversation')}</p></div>
    <button type="button" onClick={onNew} disabled={uploadBusy||busy||frozen} className="inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-xs text-[#BDA76F] disabled:opacity-40"><Plus size={14} aria-hidden="true" /> New</button>
   </div>
   {attachments}
@@ -85,7 +88,7 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
   </>
   <div className="border-t border-white/8 bg-[#151513] p-4 sm:p-5">
    <label htmlFor="dd-agent-message" className="sr-only">Message the DD agent</label>
-   <textarea id="dd-agent-message" aria-describedby="dd-agent-message-help" value={draft} disabled={busy||uploadBusy||frozen||retryPending} onChange={e=>onDraftChange(e.target.value)} rows={3} placeholder="Message the DD agent… Add questions, background or anything you want investigated." className="block min-h-24 w-full resize-y border-0 bg-transparent text-base leading-6 outline-none placeholder:text-[#807B72] disabled:opacity-50" />
+   <textarea id="dd-agent-message" aria-describedby="dd-agent-message-help" value={draft} disabled={busy||uploadBusy||frozen||retryPending} onChange={e=>onDraftChange(e.target.value)} rows={3} placeholder="Message the DD agent… Add questions, background or anything you want investigated." className="block min-h-24 w-full resize-none border-0 bg-transparent text-base leading-6 outline-none placeholder:text-[#807B72] disabled:opacity-50" />
    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
     <button type="button" aria-label="Attach documents" onClick={onAttach} disabled={busy||uploadBusy||frozen||retryPending} className="inline-flex size-11 items-center justify-center rounded-full border border-white/10 text-[#BDA76F] disabled:opacity-40"><Paperclip size={18} aria-hidden="true" /></button>
     {!uploading?<>

@@ -39,6 +39,7 @@ const worker = {
         return env.ASSETS ? env.ASSETS.fetch(assetRequest) : fetch(assetRequest);
       }
 
+      const images = env.IMAGES;
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {
         fetchAsset: (path) => {
@@ -46,7 +47,7 @@ const worker = {
           return env.ASSETS ? env.ASSETS.fetch(assetRequest) : fetch(assetRequest);
         },
         transformImage: async (body, { width, format, quality }) => {
-          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
+          const result = await images.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
           return result.response();
         },
       }, allowedWidths);

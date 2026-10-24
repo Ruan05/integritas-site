@@ -57,7 +57,7 @@ const parallelSchema = z
     }
   });
 
-function parseOrThrow<T>(schema: z.ZodType<T>, input: unknown): T {
+function parseOrThrow<T extends z.ZodTypeAny>(schema: T, input: unknown): z.output<T> {
   const result = schema.safeParse(input);
   if (result.success) return result.data;
   throw new Error(result.error.issues[0]?.message ?? "Invalid input.");

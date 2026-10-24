@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/bilawalsidhu/gods-eye-view",
+  "commit": "8cdd184a90e451b5d482c46cc60e26ecb56feace",
+  "licence": "MIT; per-source data licences separate",
+  "scope": "Browser modules vendored unchanged; used by components/dashboard/GodsEyeView.tsx"
+}

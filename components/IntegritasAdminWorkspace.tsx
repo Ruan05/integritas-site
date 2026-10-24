@@ -1,4 +1,8 @@
 "use client";
+import {readJsonObject} from '@/lib/json-response';
+
+import {useConfirmation} from "@/components/dashboard/confirm-action";
+import PremiumDashboard from "@/components/dashboard/PremiumDashboard";
 import { oraclePairReady, type OracleReportPair } from "@/lib/oracle-report-pair";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -103,6 +107,9 @@ type QuestionOnlyAttempt = {
   replaceConfirmed: boolean;
 };
 type AcceptedAttempt = SubmissionInput | QuestionOnlyAttempt;
+function isQuestionOnlyAttempt(attempt: AcceptedAttempt): attempt is QuestionOnlyAttempt {
+  return "kind" in attempt && attempt.kind === "question_only";
+}
 
 type Milestone = { stage: string; label: string };
 
@@ -145,7 +152,7 @@ async function crmRequest(body: Record<string, unknown>) {
     body: JSON.stringify(body),
     cache: "no-store",
   });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await readJsonObject(response);
   if (!response.ok) throw Object.assign(new Error(String(payload?.error || "Request failed.")), { status: response.status });
   return payload;
 }
@@ -250,8 +257,12 @@ export function milestoneStatus(index: number, job: JobRow, snapshot: Snapshot |
 }
 
 export default function IntegritasAdminWorkspace() {
+  const confirmation=useConfirmation();
   const [question, setQuestion] = useState("");
-  const [newCaseMode, setNewCaseMode] = useState(false);
+  const [newCaseMode, setNewCaseMode] = useState(true);
+  const [clientName,setClientName]=useState("");
+  const [newClientId,setNewClientId]=useState<string|null>(null);
+  const createRequest=useRef<{key:string;input:Record<string,unknown>}|null>(null);
   const [attemptFrozen, setAttemptFrozen] = useState(false);
   const acceptedAttempt = useRef<AcceptedAttempt | null>(null);
   const creating = useRef(false);
@@ -355,7 +366,7 @@ export default function IntegritasAdminWorkspace() {
   const stopInvestigation = async (intent: "pause" | "cancel") => {
     if (!job?.id || submitting) return;
     const pause = intent === "pause";
-    const confirmed = window.confirm(
+    const confirmed = await confirmation.confirm("Stop investigation",
       pause
         ? "Pause this investigation at its next safe checkpoint? Its documents, evidence ledger and recovery checkpoint will be retained so it can be continued later."
         : "Cancel this investigation at its next safe checkpoint? Its documents and audit history will be retained, but no further work will run unless you explicitly continue it later.",
@@ -376,7 +387,7 @@ export default function IntegritasAdminWorkspace() {
   };
 
   const archiveCase = async (item: CaseRow) => {
-    if (!window.confirm("Archive this investigation? It will disappear from the workspace, while its evidence and audit history remain retained securely.")) return;
+    if (!await confirmation.confirm("Archive investigation", "It will disappear from the workspace, while its evidence and audit history remain retained securely.")) return;
     setSubmitting(true);
     setArchiveMenu(null);
     setNotice("Archiving investigation…");
@@ -396,8 +407,7 @@ export default function IntegritasAdminWorkspace() {
   };
 
   const deleteCasePermanently = async (item: CaseRow) => {
-    const typed = window.prompt(`Type DELETE to permanently remove “${item.title}”, including uploaded files, report and retained evidence.`);
-    if (typed !== "DELETE") return;
+    if(!await confirmation.confirm("Permanently delete investigation", `Permanently remove “${item.title}”, including uploaded files, report and retained evidence.`, "DELETE"))return;
     setSubmitting(true);
     setArchiveMenu(null);
     setNotice("Permanently deleting the investigation and its files…");
@@ -446,7 +456,7 @@ export default function IntegritasAdminWorkspace() {
       const rows = (Array.isArray(casePayload.cases) ? casePayload.cases : [])
         .filter((row: CaseRow) => !String(row.title || "").startsWith("[SYNTHETIC]")) as CaseRow[];
       setCases(rows);
-      setActiveCaseId(rows[0]?.id || "");
+      setActiveCaseId(current=>current||rows[0]?.id||"");
     }).catch((error) => {
       if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
     });
@@ -522,7 +532,7 @@ export default function IntegritasAdminWorkspace() {
         if (target) {
           if (!questionOnly) validateCaseDocumentSelection(latest?.documents?.length ?? 0, submissionFiles);
           const replacingActiveRun = hasActiveCaseInvestigation(latest);
-          if (replacingActiveRun && !window.confirm(
+          if (replacingActiveRun && !await confirmation.confirm("Replace active investigation",
             files.length
               ? "This case still has an active DD run. This submission will create a new case revision using existing verified evidence, your new files, and the conversation history. Continue?"
               : "This case still has an active DD run. This submission will create a new case revision using its existing verified evidence and conversation history. Continue?",
@@ -544,10 +554,12 @@ export default function IntegritasAdminWorkspace() {
             : { ...common, files: [...submissionFiles] };
         } else {
           validateCaseDocumentSelection(0, submissionFiles);
-          const created = await crmRequest({action: "create_case", authorized: true, title: caseTitle(submissionFiles),
+          if(!createRequest.current)createRequest.current={key:"case:"+crypto.randomUUID(),input:{action: "create_case", authorized: true,clientId:newClientId||undefined, title: clientName.trim()||caseTitle(submissionFiles),clientName:clientName.trim()||caseTitle(submissionFiles),
             purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
             authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
-            intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."});
+            intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."}};
+          setAttemptFrozen(true);
+          const created=await crmRequest({...createRequest.current.input,idempotencyKey:createRequest.current.key});
           const caseId = String(created.caseId || "");
           if (!caseId) throw new Error("The case could not be created.");
           const prepared = await crmRequest({action: "snapshot", caseId}) as Snapshot;
@@ -561,7 +573,7 @@ export default function IntegritasAdminWorkspace() {
       const attempt = acceptedAttempt.current;
       await refreshCases(attempt.caseId);
       await loadCase(attempt.caseId);
-      if ("kind" in attempt && attempt.kind === "question_only") {
+      if (isQuestionOnlyAttempt(attempt)) {
         beginningSubmission = true;
         const result = await crmRequest(buildQuestionOnlyRevisionRequest(attempt));
         beginningSubmission = false;
@@ -625,48 +637,39 @@ export default function IntegritasAdminWorkspace() {
     setNotice("");
     if (inputRef.current) inputRef.current.value = "";
   };
+  const requestNew = async (clientId?:string) => {
+    if(submitting||creating.current)return false;
+    if((attemptFrozen||files.length||question.trim()||clientName.trim())&&!await confirmation.confirm("Start another investigation?","Your unsent brief and attached files will be cleared. Evidence already accepted by the service remains saved in its case."))return false;
+    createRequest.current=null;setClientName("");setNewClientId(clientId||null);resetNew();return true;
+  };
+  const requestCase = async (id:string) => {
+    if(submitting||creating.current)return false;
+    if(id===activeCaseId&&!newCaseMode)return true;
+    if((attemptFrozen||files.length||question.trim()||clientName.trim())&&!await confirmation.confirm("Change client folder?","Your unsent brief and file selection will be cleared before switching folders. Accepted evidence stays with its original case."))return false;
+    createRequest.current=null;acceptedAttempt.current=null;setAttemptFrozen(false);setFiles([]);setQuestion("");setArchiveMenu(null);setNewCaseMode(false);setActiveCaseId(id);
+    if(inputRef.current)inputRef.current.value="";
+    return true;
+  };
+  useEffect(()=>{
+    if(!files.length&&!question.trim()&&!clientName.trim())return;
+    const protect=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
+    window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);
+  },[files.length,question,clientName]);
 
-  return (
-    <main className="min-h-screen bg-[#080808] text-[#F7F5F0]">
-      <header className="border-b border-[#D4AF37]/15 bg-[#0B0B0B]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-          <div>
-            <p className="font-serif text-2xl leading-none">Integritas</p>
-            <p className="mt-1 text-[9px] uppercase tracking-[0.24em] text-[#BDA76F]">Investigation workspace</p>
-          </div>
-          <form action="/api/crm/logout" method="post">
-            <button className="inline-flex min-h-10 items-center gap-2 border border-white/10 px-3 text-[10px] uppercase tracking-[0.16em] text-[#A59D94] transition hover:border-[#D4AF37]/35 hover:text-[#E4C45F]">
-              <LockKeyhole size={13} aria-hidden="true" />
-              Lock
-            </button>
-          </form>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-7 text-center">
-            <div className="mx-auto mb-4 flex size-11 items-center justify-center border border-[#D4AF37]/30 text-[#D4AF37]">
-              <ShieldCheck size={20} aria-hidden="true" />
-            </div>
-            <h1 className="font-serif text-3xl font-normal sm:text-4xl">Start a new investigation</h1>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#9D968F]">
-              Upload your documents and tell the DD agent what you need to know.
-            </p>
-          </div>
-
-          <CaseAgentChat
+  const composer=(<>{newCaseMode?<div className="new-client-name"><label htmlFor="client-folder-name">{newClientId?"Investigation title in the existing client folder":"Client folder name"}</label><input id="client-folder-name" maxLength={160} value={clientName} onChange={e=>setClientName(e.target.value)} disabled={submitting||attemptFrozen} placeholder="Client or company name (optional until evidence establishes identity)"/></div>:null}
+<CaseAgentChat
             key={newCaseMode ? "new-investigation" : activeCaseId || "new-investigation"}
             caseId={newCaseMode ? undefined : activeCase?.id}
             title={newCaseMode ? undefined : activeCase?.title}
             draft={question} onDraftChange={setQuestion}
             fileCount={files.length} uploadBusy={submitting} frozen={attemptFrozen}
-            onAttach={() => inputRef.current?.click()} onStart={submitInvestigation} onNew={resetNew}
+            onAttach={() => inputRef.current?.click()} onStart={submitInvestigation} onNew={()=>void requestNew()}
             attachments={(
             <div className="p-4 sm:p-5">
               <input ref={inputRef} type="file" accept={SUPPORTED_CASE_FILE_ACCEPT} multiple className="sr-only" disabled={submitting || attemptFrozen}
                 onChange={(event) => chooseFiles(Array.from(event.target.files ?? []))} />
               <button type="button" disabled={submitting || attemptFrozen} onClick={() => inputRef.current?.click()}
+                onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();chooseFiles(Array.from(event.dataTransfer.files));}}
                 className="flex min-h-36 w-full flex-col items-center justify-center rounded-xl border border-dashed border-[#D4AF37]/30 bg-[#D4AF37]/[0.025] px-4 py-5 text-center transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/[0.05] focus-visible:outline-2 focus-visible:outline-[#D4AF37] disabled:opacity-50">
                 <UploadCloud size={26} className="text-[#D4AF37]" aria-hidden="true" />
                 <span className="mt-3 text-sm font-medium text-[#EEE5D3]">Upload documents and add information for your DD</span>
@@ -687,73 +690,8 @@ export default function IntegritasAdminWorkspace() {
               ) : null}
             </div>
             )}
-          />
-
-          {notice ? <p className="mt-3 text-center text-xs leading-5 text-[#9D968F]">{notice}</p> : null}
-        </div>
-
-        {/* Collapsible pattern adapted from 21st.dev/anubra266 using our existing Radix primitives. */}
-        <Collapsible className="mx-auto mt-8 max-w-3xl border border-[#D4AF37]/20 bg-[#0D0D0D]" onOpenChange={() => setArchiveMenu(null)}>
-          <CollapsibleTrigger className="group flex min-h-16 w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-[#D4AF37]/[0.04] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#D4AF37]">
-            <Archive size={18} className="shrink-0 text-[#BDA76F]" aria-hidden="true" />
-            <span className="min-w-0 flex-1 font-serif text-lg text-[#EEE5D3]">Case intake history</span>
-            <span className="shrink-0 rounded-full border border-[#D4AF37]/20 px-2.5 py-1 text-xs tabular-nums text-[#BDA76F]">{cases.length}</span>
-            <ChevronDown size={18} className="shrink-0 text-[#BDA76F] transition-transform duration-200 group-data-[state=open]:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="border-t border-white/8 px-5 pb-5 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none">
-            <div className="flex items-center justify-between gap-4 py-4">
-              <h2 className="text-xs text-[#A59D94]">Previous investigations</h2>
-              <button type="button" onClick={resetNew} className="inline-flex min-h-11 items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#A59D94] hover:text-[#D4AF37]">
-                <Plus size={13} aria-hidden="true" /> New
-              </button>
-            </div>
-            {cases.length ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {cases.map((item) => {
-                  const held = Boolean(item.latest_report
-                    && reportNeedsHold(item.latest_report.summary || "", item.latest_report.content_markdown || ""));
-                  const archiveStatus = held
-                    ? "HOLD — INCOMPLETE"
-                    : item.latest_report?.status || item.latest_job?.stage || item.status || "In progress";
-                  return (
-                  <div
-                    key={item.id}
-                    className={`relative border p-4 text-left transition ${item.id === activeCaseId ? "border-[#D4AF37]/45 bg-[#D4AF37]/[0.04]" : "border-white/8 bg-[#0D0D0D] hover:border-[#D4AF37]/25"}`}
-                  >
-                    <button type="button" onClick={() => { setArchiveMenu(null); setQuestion(""); setNewCaseMode(false); setActiveCaseId(item.id); }} className="block w-full pr-10 text-left">
-                      <p className={`truncate text-sm ${held ? "text-[#D9A597]" : "text-[#DDD4C6]"}`}>{item.title}</p>
-                      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[#6F6962]">
-                        <span>{new Date(item.created_at).toLocaleDateString("en-ZA")}</span>
-                        <span className={held ? "text-[#D9A597]" : ""}>{archiveStatus}</span>
-                      </div>
-                      {item.latest_report?.summary ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#8F8981]">{item.latest_report.summary}</p> : null}
-                      {!item.latest_report?.summary && item.latest_job?.stage ? <p className="mt-3 text-xs leading-5 text-[#8F8981]">{item.latest_job.stage.replaceAll("_", " ")} · {item.latest_job.progress ?? 0}%</p> : null}
-                    </button>
-                    <div className="absolute right-3 top-3">
-                      <button type="button" aria-label={`Options for ${item.title}`} title="Investigation options" onClick={() => setArchiveMenu((current) => current === item.id ? null : item.id)} className="inline-flex size-9 items-center justify-center text-[#A59D94] hover:bg-white/5 hover:text-[#E4C45F]">
-                        <MoreHorizontal size={17} aria-hidden="true" />
-                      </button>
-                      {archiveMenu === item.id ? (
-                        <div role="menu" className="absolute right-0 z-10 mt-1 w-44 border border-white/10 bg-[#151515] p-1 shadow-2xl">
-                          <button type="button" role="menuitem" onClick={() => { setArchiveMenu(null); setQuestion(""); setNewCaseMode(false); setActiveCaseId(item.id); }} className="flex w-full items-center px-3 py-2 text-left text-xs text-[#DDD4C6] hover:bg-white/5">Open investigation</button>
-                          <button type="button" role="menuitem" onClick={() => void archiveCase(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Archive size={13} aria-hidden="true" /> Archive (keep evidence)</button>
-                          <button type="button" role="menuitem" onClick={() => void deleteCasePermanently(item)} disabled={submitting} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D9A597] hover:bg-[#B96F5C]/10 disabled:opacity-40"><Trash2 size={13} aria-hidden="true" /> Permanently delete</button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="border border-white/8 bg-[#0D0D0D] p-6 text-sm text-[#7F7871]">
-                Completed investigations will appear here automatically.
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
-
-        {!newCaseMode && activeCase && currentSnapshot?.case && !submitting ? <details className="mx-auto mt-8 max-w-3xl border border-[#D4AF37]/20 bg-[#0D0D0D]">
+          /></>);
+  const caseWorkspace=(<>        {!newCaseMode && activeCase && currentSnapshot?.case && !submitting ? <details className="mx-auto mt-8 max-w-3xl border border-[#D4AF37]/20 bg-[#0D0D0D]">
           <summary className="cursor-pointer px-5 py-4 text-sm text-[#BDA76F]">Manage document submission · {activeCase.title}</summary>
           <div className="border-t border-white/8 p-4 sm:p-5">
             <DocumentIntakePanel token="crm-session" caseId={activeCaseId} caseRevision={currentSnapshot.case.revision}
@@ -896,7 +834,11 @@ export default function IntegritasAdminWorkspace() {
             ) : null}
           </section>
         ) : null}
-      </section>
-    </main>
-  );
+{activeCase&&!newCaseMode?<details className="dash-panel mt-5 p-5"><summary className="cursor-pointer text-sm text-[#D4C5A3]">Manage investigation</summary><p className="mt-3 text-xs text-[#A9A39A]">Archiving retains evidence and audit history. Stop an active investigation before archiving it.</p><div className="mt-4 flex flex-wrap gap-3"><button className="dash-button" disabled={submitting||running} onClick={()=>void archiveCase(activeCase)}>Archive investigation</button></div></details>:null}
+</>);
+  return <><PremiumDashboard cases={cases} snapshot={currentSnapshot} activeCaseId={activeCaseId} newCaseMode={newCaseMode}
+    onSelect={requestCase}
+    onNew={requestNew}
+    onPrepare={async row=>{if(await requestNew()){setClientName(row.name);setQuestion(`Investigate ${row.name} (${row.country}). Historical dossier lead ${row.code}, dated 13 October 2026: ${row.offering||row.role}. Treat historical identity, contact and opportunity claims as unverified; establish current evidence and preserve all unknowns.`);return true;}return false;}}
+    composer={composer} workspace={caseWorkspace} notice={notice}/>{confirmation.dialog}</>;
 }

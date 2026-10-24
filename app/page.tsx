@@ -965,7 +965,10 @@ function ContactSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, privacyAccepted }),
       });
-      const data = await res.json();
+      const rawData = await res.json();
+      const payload: Record<string, unknown> = rawData && typeof rawData === "object" && !Array.isArray(rawData) ? rawData as Record<string, unknown> : {};
+      const data = {success: payload.success === true, error: typeof payload.error === "string" ? payload.error : undefined,
+        mode: typeof payload.mode === "string" ? payload.mode : undefined, mailtoLink: typeof payload.mailtoLink === "string" ? payload.mailtoLink : undefined};
       if (!res.ok || !data.success) {
         setErrorMessage(data.error || "We could not prepare your enquiry. Please email us directly.");
         setStatus("error");

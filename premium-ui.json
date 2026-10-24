@@ -1,0 +1,7 @@
+{
+  "profile": "product-admin",
+  "locale": "en-ZA",
+  "sourceRoots": ["app/crm", "components/dashboard", "components/CaseAgentChat.tsx", "components/IntegritasAdminWorkspace.tsx", "components/CrmLogin.tsx", "app/globals.css"],
+  "canonicalMap": "UX-CONTRACT.md",
+  "ownership": {"Select/Listbox": "authored", "Date": "read-only", "Form": "application"}
+}

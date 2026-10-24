@@ -53,7 +53,7 @@ test("protects the contact and privacy contract", async () => {
   assert.match(worker, /sourcePath\.startsWith\("\/\/"\)/);
 });
 
-test("keeps the live CRM behind one password and exposes the simple investigation workflow", async () => {
+test("keeps the premium dashboard behind the existing password and preserves sealed DD workflow", async () => {
   const [crmPage, gate, loginRoute, auth, backend, workspace, chat, browser, intake] = await Promise.all([
     source("app/crm/page.tsx"),
     source("components/CrmPasswordGate.tsx"),
@@ -99,7 +99,9 @@ test("keeps the live CRM behind one password and exposes the simple investigatio
   assert.match(workspace, /Historical report from an earlier investigation or case revision/);
   assert.match(workspace, /Investigation progress/);
   assert.match(workspace, /Download Enhanced Due Diligence/);
-  assert.match(workspace, /Previous investigations/);
+  assert.match(workspace, /PremiumDashboard/);
+  assert.match(await source("components/CrmLogin.tsx"), /Go to Dashboard/);
+  assert.match(await source("components/dashboard/PremiumDashboard.tsx"), /Latest DD investigations/);
   assert.match(workspace, /Maximum-depth, source-grounded due-diligence investigation/);
   assert.match(workspace, /role="progressbar"/);
   assert.doesNotMatch(workspace, /signInWithOtp|Authorized analyst sign-in|Send secure sign-in link/);
