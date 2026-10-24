@@ -10,7 +10,7 @@ const {oraclePairReady}=await vite.ssrLoadModule('/lib/oracle-report-pair.ts');
 
 test('lost upload acknowledgements reconcile without reuploading evidence',async()=>{
   const calls=[];let uploads=0;
-  const client=createIntakeBrowserClient(async(_token,body)=>{calls.push(body.action);return {state:'sealed'};},async()=>{uploads++;},'https://project.supabase.co/functions/v1/admin');
+  const client=createIntakeBrowserClient(async(_token,body)=>{calls.push(body.action);return {batchId:'batch',caseId:'case',caseRevision:0,state:'sealed',items:[],intentState:null,reason:null};},async()=>{uploads++;},'https://project.supabase.co/functions/v1/admin');
   const status=await client.uploadSubmissionItem('session','batch','item',new File(['evidence'],'proof.txt'));
   assert.equal(status.state,'sealed');assert.equal(uploads,0);
   assert.deepEqual(calls,['reserve_submission_item','finalize_submission_item']);
@@ -19,7 +19,7 @@ test('uploads only to the signed private Storage origin and preserves the frozen
   let uploadCalls=0,begin;
   const file=new File(['evidence'],'proof.txt',{type:'text/plain'});
   const client=createIntakeBrowserClient(async(_token,body)=>{
-    if(body.action==='begin_submission'){begin=body;return {};}
+    if(body.action==='begin_submission'){begin=body;return {batchId:'batch',caseId:'case',caseRevision:3,state:'open',items:[],intentState:null,reason:null};}
     if(body.action==='reserve_submission_item')return {name:file.name,size:file.size,mime:'text/plain',uploadUrl:'https://other.example/storage/v1/object/upload/sign/x'};
     throw Object.assign(new Error('missing'),{code:'OBJECT_NOT_AVAILABLE'});
   },async()=>{uploadCalls++;},'https://project.supabase.co/functions/v1/admin');
@@ -50,4 +50,12 @@ test('Oracle final controls require both current editions from the same atomic r
   assert.equal(oraclePairReady(job,report,[{...pair,case_id:'another'}],2),false);
   assert.equal(oraclePairReady(job,report,[{...pair,internal_sha256:pair.external_sha256}],2),false);
   assert.equal(oraclePairReady(job,{...report,report_model_sha256:'different'},[pair],2),false);
+});
+
+test('a brand-new case retains SQL null as no submission, and malformed receipts fail before rendering',async()=>{
+ const requestClient=createIntakeBrowserClient(async()=>null,fetch,'https://project.supabase.co/functions/v1/admin');assert.equal(await requestClient.submissionStatus('session',null,'case'),null);
+ const malformed=createIntakeBrowserClient(async()=>({}),fetch,'https://project.supabase.co/functions/v1/admin');await assert.rejects(malformed.submissionStatus('session',null,'case'),/Submission status is invalid/);
+ const previous=globalThis.fetch;
+ try{globalThis.fetch=async()=>new Response('null',{status:200,headers:{'content-type':'application/json'}});const {crmIntakeClient}=await vite.ssrLoadModule('/lib/crm-intake.ts');assert.equal(await crmIntakeClient.submissionStatus('session',null,'new-case'),null);}
+ finally{globalThis.fetch=previous;}
 });

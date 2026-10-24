@@ -43,21 +43,32 @@ export function validateSubmissionFiles(files:File[]){
     if(file.size<1||file.size>50*1024*1024)throw new Error('Each evidence file must be between 1 byte and 50 MiB.');
   }
 }
+/** Validate the wire receipt once, before it enters rendered or retry state. */
+export function parseSubmissionStatus(value:unknown,allowNull:true):SubmissionStatus|null;
+export function parseSubmissionStatus(value:unknown,allowNull?:false):SubmissionStatus;
+export function parseSubmissionStatus(value:unknown,allowNull=false):SubmissionStatus|null {
+  if(value===null&&allowNull)return null;
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Submission status is invalid. Refresh to recover it.');
+  const v=value as Record<string,unknown>;
+  if(typeof v.batchId!=='string'||!v.batchId||typeof v.caseId!=='string'||!v.caseId||!Number.isSafeInteger(v.caseRevision)||Number(v.caseRevision)<0||!['open','sealed','cancelled','expired'].includes(String(v.state))||!Array.isArray(v.items)||v.items.length>20)throw new Error('Submission status is invalid. Refresh to recover it.');
+  for(const item of v.items){if(!item||typeof item!=='object'||typeof item.id!=='string'||typeof item.key!=='string'||typeof item.name!=='string'||typeof item.mime!=='string'||!Number.isFinite(item.size)||item.size<1||!['pending','verified'].includes(item.state))throw new Error('Submission file status is invalid. Refresh to recover it.');}
+  return v as SubmissionStatus;
+}
 type Request=(token:string,body:Record<string,unknown>)=>Promise<unknown>;
 export function createIntakeBrowserClient(request:Request,fetchImpl:typeof fetch,adminApiUrl:string):IntakeClient{
   return {
     async beginSubmission(token,input){
       validateSubmissionFiles(input.files);
       if(Array.from(input.question).length>3000||Array.from(input.context).length>6000)throw new Error('Submission brief exceeds its character limit.');
-      return await request(token,{action:'begin_submission',caseId:input.caseId,caseRevision:input.caseRevision,clientKey:input.clientKey,question:input.question,context:input.context,replaceConfirmed:input.replaceConfirmed,items:input.files.map((file,i)=>({key:`file-${i}`,name:file.name,mime_type:intakeMime(file),size_bytes:file.size}))}) as SubmissionStatus;
+      return parseSubmissionStatus(await request(token,{action:'begin_submission',caseId:input.caseId,caseRevision:input.caseRevision,clientKey:input.clientKey,question:input.question,context:input.context,replaceConfirmed:input.replaceConfirmed,items:input.files.map((file,i)=>({key:`file-${i}`,name:file.name,mime_type:intakeMime(file),size_bytes:file.size}))}));
     },
-    async submissionStatus(token,batchId,caseId){return await request(token,{action:'submission_status',caseId,batchId}) as SubmissionStatus|null;},
-    async cancelSubmission(token,batchId,caseId){return await request(token,{action:'cancel_submission',batchId,caseId}) as SubmissionStatus;},
+    async submissionStatus(token,batchId,caseId){return parseSubmissionStatus(await request(token,{action:'submission_status',caseId,batchId}),true);},
+    async cancelSubmission(token,batchId,caseId){return parseSubmissionStatus(await request(token,{action:'cancel_submission',batchId,caseId}));},
     async uploadSubmissionItem(token,batchId,itemId,file){
       const reservation=await request(token,{action:'reserve_submission_item',batchId,itemId});
       if(!reservation||typeof reservation!=='object'||Array.isArray(reservation))throw new Error('Evidence upload reservation is invalid.');
       const reserved=reservation as Record<string,unknown>;
-      const finalize=async()=>await request(token,{action:'finalize_submission_item',batchId,itemId}) as SubmissionStatus;
+      const finalize=async()=>parseSubmissionStatus(await request(token,{action:'finalize_submission_item',batchId,itemId}));
       // Resolve an uploaded/verified object before creating transport work again.
       try{return await finalize();}catch(e){if((e as {code?:string})?.code!=='OBJECT_NOT_AVAILABLE')throw e;}
       validateSubmissionFiles([file]);
