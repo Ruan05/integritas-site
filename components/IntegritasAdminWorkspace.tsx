@@ -5,7 +5,7 @@ import {useConfirmation} from "@/components/dashboard/confirm-action";
 import PremiumDashboard from "@/components/dashboard/PremiumDashboard";
 import { oraclePairReady, type OracleReportPair } from "@/lib/oracle-report-pair";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DocumentIntakePanel } from "@/components/DocumentIntakePanel";
 import CaseAgentChat, { caseChatRequest } from "@/components/CaseAgentChat";
@@ -15,6 +15,7 @@ import InvestigationReport from "@/components/InvestigationReport";
 import {startVisiblePolling} from "@/lib/visible-polling.mjs";
 import { reportNeedsHold } from "@/lib/report-disposition";
 import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportModel } from "@/lib/integritas-report-model";
+import {readWithRetry} from "@/lib/crm-read-recovery.mjs";
 import {
   Archive,
   CheckCircle2,
@@ -272,6 +273,7 @@ export default function IntegritasAdminWorkspace() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
+  const [readError, setReadError] = useState("");
   const [modelVerification, setModelVerification] = useState<{
     report: ReportRow | null;
     model: VerifiedReportModel | null;
@@ -279,6 +281,12 @@ export default function IntegritasAdminWorkspace() {
   }>({ report: null, model: null, checked: false });
   const [archiveMenu, setArchiveMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const clearReadNotice = useCallback(() => {
+    setReadError("");
+  }, []);
+  const markReadNotice = useCallback((error: unknown) => {
+    setReadError(error instanceof Error ? error.message : String(error));
+  }, []);
 
   const activeCase = useMemo(
     () => cases.find((item) => item.id === activeCaseId) ?? (snapshot?.case as CaseRow | undefined) ?? null,
@@ -429,6 +437,7 @@ export default function IntegritasAdminWorkspace() {
 
   const refreshCases = async (prefer?: string) => {
     const payload = await crmRequest({ action: "list_cases" });
+    clearReadNotice();
     const rows = (Array.isArray(payload.cases) ? payload.cases : [])
       .filter((row: CaseRow) => !String(row.title || "").startsWith("[SYNTHETIC]")) as CaseRow[];
     setCases(rows);
@@ -444,6 +453,7 @@ export default function IntegritasAdminWorkspace() {
       return null;
     }
     const data = await crmRequest({ action: "snapshot", caseId });
+    clearReadNotice();
     setSnapshot(data as Snapshot);
     const job = newestJob(data as Snapshot);
     setPollingActive.current?.(Boolean(job && !TERMINAL.has(job.stage)));
@@ -452,17 +462,18 @@ export default function IntegritasAdminWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    crmRequest({ action: "list_cases" }).then((casePayload) => {
+    void readWithRetry(() => crmRequest({ action: "list_cases" })).then((casePayload) => {
       if (cancelled) return;
+      clearReadNotice();
       const rows = (Array.isArray(casePayload.cases) ? casePayload.cases : [])
         .filter((row: CaseRow) => !String(row.title || "").startsWith("[SYNTHETIC]")) as CaseRow[];
       setCases(rows);
       setActiveCaseId(current=>current||rows[0]?.id||"");
     }).catch((error) => {
-      if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
+      if (!cancelled) markReadNotice(error);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [clearReadNotice,markReadNotice]);
 
   useEffect(() => {
     if (!activeCaseId) return;
@@ -472,6 +483,7 @@ export default function IntegritasAdminWorkspace() {
       const data = await crmRequest({ action: "snapshot", caseId: activeCaseId });
       if (cancelled) return false;
       setSnapshot(data as Snapshot);
+      clearReadNotice();
       const nextJob = newestJob(data as Snapshot);
       if (nextJob && TERMINAL.has(nextJob.stage)) {
         const version = `${nextJob.id}:${nextJob.stage}:${nextJob.current_attempt}:${nextJob.updated_at}`;
@@ -482,7 +494,7 @@ export default function IntegritasAdminWorkspace() {
       }
       return Boolean(nextJob && !TERMINAL.has(nextJob.stage));
     }, {idleDelay: 45000, onError: (error: unknown) => {
-      if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
+      if (!cancelled) markReadNotice(error);
     }});
     setPollingActive.current = poll.setActive;
     void poll.refresh();
@@ -496,7 +508,7 @@ export default function IntegritasAdminWorkspace() {
       window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, [activeCaseId]);
+  }, [activeCaseId,clearReadNotice,markReadNotice]);
 
   const chooseFiles = (next: File[]) => {
     try {
@@ -854,5 +866,5 @@ export default function IntegritasAdminWorkspace() {
     onRestored={async()=>{await refreshCases(activeCaseId);}}
     onNew={requestNew}
     onPrepare={async row=>{if(await requestNew()){setClientName(row.name);setQuestion(`Investigate ${row.name} (${row.country}). Historical dossier lead ${row.code}, dated 13 October 2026: ${row.offering||row.role}. Treat historical identity, contact and opportunity claims as unverified; establish current evidence and preserve all unknowns.`);return true;}return false;}}
-    composer={composer} workspace={caseWorkspace} notice={notice}/>{confirmation.dialog}</>;
+    composer={composer} workspace={caseWorkspace} notice={notice||readError}/>{confirmation.dialog}</>;
 }

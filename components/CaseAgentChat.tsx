@@ -6,6 +6,7 @@ import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {ArrowUp,MessageSquare,ShieldCheck,Paperclip,Plus} from 'lucide-react';
 import {startVisiblePolling} from '@/lib/visible-polling.mjs';
 import {storedAssistantReply} from '@/lib/stored-chat-reply.mjs';
+import {clearRecoveredReadError} from '@/lib/crm-read-recovery.mjs';
 
 export function AssistantMessageContent({content}:{content:string}){
  const reply=storedAssistantReply(content);
@@ -24,18 +25,22 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
  const scope=caseId?{caseId}:{scope:'general'};
  const [data,setData]=useState<History|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[olderBusy,setOlderBusy]=useState(false),[retryPending,setRetryPending]=useState(false);
  const retry=useRef<{clientKey:string;message:string}|null>(null),sending=useRef(false),alive=useRef(true);
+ const errorSource=useRef<'read'|'action'|null>(null);
  const refreshChat=useRef<(()=>Promise<unknown>)|null>(null);
  useEffect(()=>{
   alive.current=true;let valid=true;
   const read=async()=>{
    try{const next=await caseChatRequest({action:'chat_history',...(caseId?{caseId}:{scope:'general'})}) as History;
-    if(valid){setData(current=>{
+    if(valid){
+     if(errorSource.current==='read'){setError(current=>clearRecoveredReadError(current,'read'));errorSource.current=null;}
+     setData(current=>{
      const loaded=current?.messages||[],first=next.messages[0];
      const prior=first?loaded.filter(m=>m.created_at<first.created_at||(m.created_at===first.created_at&&m.id<first.id)):[];
      return {...next,messages:[...prior,...next.messages],hasMore:prior.length?Boolean(current?.hasMore):next.hasMore};
-    });}
+     });
+    }
     return next.messages.some(m=>m.role==='user'&&['queued','processing'].includes(m.status));
-   }catch(e){if(valid)setError(e instanceof Error?e.message:'Conversation unavailable.');return false;}
+   }catch(e){if(valid){errorSource.current='read';setError(e instanceof Error?e.message:'Conversation unavailable.');}return false;}
   };
   const poll=startVisiblePolling(read,{idleDelay:30000});refreshChat.current=poll.refresh;void poll.refresh();
   const visible=()=>{void poll.refresh();};document.addEventListener('visibilitychange',visible);window.addEventListener('focus',visible);
@@ -45,26 +50,26 @@ export default function CaseAgentChat({caseId,title,draft,onDraftChange,attachme
  async function send(){
   if(sending.current||pending||!draft.trim()||data?.admission?.enabled===false)return;
   if(Array.from(draft).length>6000){setError('Your message must be no more than 6,000 characters.');return;}
-  sending.current=true;setBusy(true);setError('');
+  sending.current=true;setBusy(true);setError('');errorSource.current=null;
   const attempt=retry.current??{clientKey:'chat:'+crypto.randomUUID(),message:draft.trim()};retry.current=attempt;setRetryPending(true);
   try{
    await caseChatRequest({action:'chat_send',...scope,...attempt});
    retry.current=null;setRetryPending(false);
    if(alive.current){onDraftChange('');await refreshChat.current?.();}
-  }catch(e){if(alive.current){setRetryPending(false);setError(e instanceof Error?e.message:'Message could not be sent. Retry to recover it.');}}
+  }catch(e){if(alive.current){setRetryPending(false);errorSource.current='action';setError(e instanceof Error?e.message:'Message could not be sent. Retry to recover it.');}}
   finally{sending.current=false;if(alive.current)setBusy(false);}
  }
  async function older(){
   if(!data?.messages.length||olderBusy)return;setOlderBusy(true);
   try{const page=await caseChatRequest({action:'chat_history',...scope,before:data.messages[0].id});if(alive.current)setData(current=>current?{...current,hasMore:page.hasMore,messages:[...page.messages.filter((m:Message)=>!current.messages.some(x=>x.id===m.id)),...current.messages]}:current);}
-  catch(e){if(alive.current)setError(e instanceof Error?e.message:'Earlier messages could not be loaded.');}
+  catch(e){if(alive.current){errorSource.current='action';setError(e instanceof Error?e.message:'Earlier messages could not be loaded.');}}
   finally{if(alive.current)setOlderBusy(false);}
  }
  const uploading=fileCount>0||frozen;
  async function startInvestigation(){
-  if(busy)return;setBusy(true);setError('');
+  if(busy)return;setBusy(true);setError('');errorSource.current=null;
   try{await onStart();}
-  catch(e){if(alive.current)setError(e instanceof Error?e.message:'The DD submission could not be completed. Your brief and files are still available; retry after resolving the error.');}
+  catch(e){if(alive.current){errorSource.current='action';setError(e instanceof Error?e.message:'The DD submission could not be completed. Your brief and files are still available; retry after resolving the error.');}}
   finally{if(alive.current)setBusy(false);}
  }
  return <section aria-label="Integritas DD agent" className="overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#10100F] shadow-xl shadow-black/20 focus-within:border-[#D4AF37]/50">
