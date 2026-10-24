@@ -4,6 +4,7 @@ import {Expand,Home,Layers,MapPin,Minus,Plus} from 'lucide-react';
 import {Select as AuthoredSelect,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
 import {factQualification} from '@/lib/dashboard-search.mjs';
 import {entityLocation} from '@/lib/dashboard-model.mjs';
+import {streetCaptureDate} from '@/lib/street-capture-date.mjs';
 
 type Entity={id:string;display_name:string;identifiers?:Record<string,unknown>};
 const safeExternalImageUrl=(value:unknown)=>{try{const url=new URL(String(value));return url.protocol==='https:'?url.href:null;}catch{return null;}};
@@ -93,7 +94,7 @@ export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}
     <div className="street-imagery-toolbar"><span role="status">{streetUi?.coverage?.loading?'Loading coverage…':streetUi?.coverage?.count?`${streetUi.coverage.count} coverage segments in view`:streetUi?.coverage?.hint||'Checking community coverage for this view'}</span><button className="dash-button" disabled={!!streetUi?.street?.loading} onClick={()=>void streetLayer.current?.openNearest(nearestPoint||undefined,{providerIds:['panoramax'],frame:false})}>{streetUi?.street?.loading?'Finding imagery…':nearestPoint?'Find photo at selected DD location':'Find photo at map center'}</button><button className="dash-button" onClick={()=>streetLayer.current?.closeViewer()} disabled={!streetUi?.street?.open}>Close photo</button></div>
     {streetError||streetUi?.coverage?.error||streetUi?.street?.error?<p className="street-feedback" role="status">{streetError||streetUi?.coverage?.error||streetUi?.street?.error}</p>:null}
     <div className="street-viewer" ref={streetHost} aria-label="Panoramax street photo viewer"/>
-    {streetUi?.street?.open?<p className="street-credit">{streetUi.street.creator?`Photo by ${streetUi.street.creator}`:'Panoramax community photo'}{streetUi.street.license?` · ${streetUi.street.license}`:''}{streetUi.street.capturedAt?` · captured ${streetUi.street.capturedAt}`:''}{safeExternalImageUrl(streetUi.street.externalUrl)?<a href={safeExternalImageUrl(streetUi.street.externalUrl)!} target="_blank" rel="noreferrer">Open original</a>:null}</p>:null}
+    {streetUi?.street?.open?<p className="street-credit">{streetUi.street.creator?`Photo by ${streetUi.street.creator}`:'Panoramax community photo'}{streetUi.street.license?` · ${streetUi.street.license}`:''}{` · captured ${streetCaptureDate(streetUi.street.capturedAt)}`}{safeExternalImageUrl(streetUi.street.externalUrl)?<a href={safeExternalImageUrl(streetUi.street.externalUrl)!} target="_blank" rel="noreferrer">Open original</a>:null}</p>:null}
     <p className="street-credit">Street-level imagery: Panoramax community catalogue · per-photo credits and licences shown with each image.</p>
    </>}
   </section>
