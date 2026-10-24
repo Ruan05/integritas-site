@@ -22,7 +22,7 @@ test('a completed job alone cannot produce a finalized report claim',()=>{
 });
 test('case-list fallback defines every collection before the dashboard snapshot arrives',()=>{
  const data=projectDashboard({cases:[{id:'new-case',title:'New client',revision:0}]});
- for(const key of ['documents','records','links','history','preferences','sources','relationships','findings','checks','jobs','pairs','prospects'])assert.equal(Array.isArray(data[key]),true,key+' must be a collection during initial/deep-link load');
+ for(const key of ['archivedCases','documents','records','links','history','preferences','sources','relationships','findings','checks','jobs','pairs','prospects'])assert.equal(Array.isArray(data[key]),true,key+' must be a collection during initial/deep-link load');
  assert.equal(data.documents.filter(d=>d.case_id==='new-case').length,0);assert.equal(data.cases[0].gates.length,12);
 });
 test('CSV exports quote content and neutralize formula prefixes including leading whitespace',async()=>{

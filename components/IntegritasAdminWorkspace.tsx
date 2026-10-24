@@ -850,6 +850,7 @@ export default function IntegritasAdminWorkspace() {
 </>);
   return <><PremiumDashboard cases={cases} snapshot={currentSnapshot} activeCaseId={activeCaseId} newCaseMode={newCaseMode}
     onSelect={requestCase}
+    onRestored={async()=>{await refreshCases(activeCaseId);}}
     onNew={requestNew}
     onPrepare={async row=>{if(await requestNew()){setClientName(row.name);setQuestion(`Investigate ${row.name} (${row.country}). Historical dossier lead ${row.code}, dated 13 October 2026: ${row.offering||row.role}. Treat historical identity, contact and opportunity claims as unverified; establish current evidence and preserve all unknowns.`);return true;}return false;}}
     composer={composer} workspace={caseWorkspace} notice={notice}/>{confirmation.dialog}</>;
