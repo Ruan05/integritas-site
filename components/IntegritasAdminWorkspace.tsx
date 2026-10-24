@@ -412,13 +412,14 @@ export default function IntegritasAdminWorkspace() {
     setArchiveMenu(null);
     setNotice("Permanently deleting the investigation and its files…");
     try {
-      await crmRequest({ action: "purge_case", caseId: item.id, confirmation: "DELETE" });
+      const receipt = await crmRequest({ action: "purge_case", caseId: item.id, confirmation: "DELETE" });
+      window.dispatchEvent(new Event("integritas-case-purged"));
       const nextCases = await refreshCases(activeCaseId === item.id ? undefined : activeCaseId);
       if (activeCaseId === item.id) {
         setActiveCaseId(nextCases[0]?.id || "");
         setSnapshot(null);
       }
-      setNotice("Investigation and uploaded files were permanently deleted.");
+      setNotice(receipt.cleanupState === "complete" ? "Investigation and evidence files permanently deleted." : "Investigation deleted. Evidence file cleanup is saved and will retry automatically; see File cleanup status below.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     } finally {
