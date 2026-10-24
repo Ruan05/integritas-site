@@ -20,3 +20,8 @@ test('a completed job alone cannot produce a finalized report claim',()=>{
  const data=projectDashboard({cases:[{id:'a',title:'A',revision:1}],jobs:[{id:'j',case_id:'a',case_revision:1,runtime_provider:'ruan-native',stage:'completed'}],reports:[{id:'r',case_id:'a',case_job_id:'old',based_on_revision:1,status:'finalized'}]});
  assert.equal(data.cases[0].completed,false);
 });
+test('case-list fallback defines every collection before the dashboard snapshot arrives',()=>{
+ const data=projectDashboard({cases:[{id:'new-case',title:'New client',revision:0}]});
+ for(const key of ['documents','records','links','history','preferences','sources','relationships','findings','checks','jobs','pairs','prospects'])assert.equal(Array.isArray(data[key]),true,key+' must be a collection during initial/deep-link load');
+ assert.equal(data.documents.filter(d=>d.case_id==='new-case').length,0);assert.equal(data.cases[0].gates.length,12);
+});
