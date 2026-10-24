@@ -514,6 +514,18 @@ export default function IntegritasAdminWorkspace() {
     }
   };
 
+  async function ensureFolder(submissionFiles:File[]):Promise<string> {
+    if(!createRequest.current)createRequest.current={key:"case:"+crypto.randomUUID(),input:{action: "create_case", authorized: true,clientId:newClientId||undefined, title: clientName.trim()||caseTitle(submissionFiles),clientName:clientName.trim()||caseTitle(submissionFiles),
+      purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
+      authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
+      intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."}};
+    setAttemptFrozen(true);
+    const created=await crmRequest({...createRequest.current.input,idempotencyKey:createRequest.current.key});
+    const caseId = String(created.caseId || "");
+    if (!caseId) throw new Error("The case could not be created.");
+    return caseId;
+  }
+
   const submitInvestigation = async () => {
     if (submitting || creating.current) return;
     creating.current = true;
@@ -554,14 +566,7 @@ export default function IntegritasAdminWorkspace() {
             : { ...common, files: [...submissionFiles] };
         } else {
           validateCaseDocumentSelection(0, submissionFiles);
-          if(!createRequest.current)createRequest.current={key:"case:"+crypto.randomUUID(),input:{action: "create_case", authorized: true,clientId:newClientId||undefined, title: clientName.trim()||caseTitle(submissionFiles),clientName:clientName.trim()||caseTitle(submissionFiles),
-            purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
-            authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
-            intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."}};
-          setAttemptFrozen(true);
-          const created=await crmRequest({...createRequest.current.input,idempotencyKey:createRequest.current.key});
-          const caseId = String(created.caseId || "");
-          if (!caseId) throw new Error("The case could not be created.");
+          const caseId=await ensureFolder(submissionFiles);
           const prepared = await crmRequest({action: "snapshot", caseId}) as Snapshot;
           const revision = Number(prepared.case?.revision);
           if (!Number.isSafeInteger(revision)) throw new Error("The case revision is unavailable.");
@@ -650,13 +655,20 @@ export default function IntegritasAdminWorkspace() {
     if(inputRef.current)inputRef.current.value="";
     return true;
   };
+  const createFolderOnly=async()=>{
+    if(submitting||creating.current||!clientName.trim()&&!createRequest.current)return;
+    creating.current=true;setSubmitting(true);setNotice("Creating your client folder…");
+    try{const id=await ensureFolder(files);await refreshCases(id);await loadCase(id);setNewCaseMode(false);setClientName("");setNewClientId(null);setAttemptFrozen(false);setNotice("Folder created and saved. Add evidence and run full DD when ready; creating a folder does not start an investigation.");}
+    catch(e){setNotice(e instanceof Error?e.message:"The folder could not be confirmed. Retry this same request to recover its status.");}
+    finally{creating.current=false;setSubmitting(false);}
+  };
   useEffect(()=>{
     if(!files.length&&!question.trim()&&!clientName.trim())return;
     const protect=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
     window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);
   },[files.length,question,clientName]);
 
-  const composer=(<>{newCaseMode?<div className="new-client-name"><label htmlFor="client-folder-name">{newClientId?"Investigation title in the existing client folder":"Client folder name"}</label><input id="client-folder-name" maxLength={160} value={clientName} onChange={e=>setClientName(e.target.value)} disabled={submitting||attemptFrozen} placeholder="Client or company name (optional until evidence establishes identity)"/></div>:null}
+  const composer=(<>{newCaseMode?<div className="new-client-name"><label htmlFor="client-folder-name">{newClientId?"Investigation title in the existing client folder":"Client folder name"}</label><input id="client-folder-name" maxLength={160} value={clientName} onChange={e=>setClientName(e.target.value)} disabled={submitting||attemptFrozen} placeholder="Client or company name (optional until evidence establishes identity)"/><button className="dash-button" onClick={()=>void createFolderOnly()} disabled={submitting||(!clientName.trim()&&!createRequest.current)}>{submitting?"Saving…":attemptFrozen?"Retry folder creation":"Create folder"}</button><p className="dash-muted">Create and save the folder now. Full DD starts only when you submit its evidence and brief.</p></div>:null}
 <CaseAgentChat
             key={newCaseMode ? "new-investigation" : activeCaseId || "new-investigation"}
             caseId={newCaseMode ? undefined : activeCase?.id}
