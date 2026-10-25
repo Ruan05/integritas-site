@@ -3,6 +3,7 @@ import {readJsonObject} from '@/lib/json-response';
 
 import {Component,useCallback,useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {Activity,ArrowDownUp,ArrowUpRight,Building2,Check,ChevronRight,Download,FileText,FolderOpen,Globe2,LayoutDashboard,Link2,LockKeyhole,Network,Plus,Search,ShieldCheck,Star,Users,X} from 'lucide-react';
+import Link from 'next/link';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {Select as AuthoredSelect,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
 import {Tabs,TabsList,TabsTrigger} from '@/components/ui/tabs';
@@ -14,7 +15,7 @@ import CaseCleanupStatus from './CaseCleanupStatus';
 import {projectDashboard,recordFor,humanize,ddTime,matchesEntity,downloadCsv} from '@/lib/dashboard-model.mjs';
 import './dashboard.css';
 
-type Row=Record<string,any>;
+type Row=Record<string,unknown>;
 type Props={cases:Row[];snapshot:Row|null;activeCaseId:string;newCaseMode:boolean;onSelect:(id:string)=>Promise<boolean>;onNew:(clientId?:string)=>Promise<boolean>;onPrepare:(row:Row)=>Promise<boolean>;onRestored:()=>Promise<void>;composer:ReactNode;workspace:ReactNode;notice:string};
 const NAV=[['overview','Command center',LayoutDashboard],['clients','Client folders',FolderOpen],['directory','Companies & people',Users],['prospects','Prospects',Building2],['network','Network',Network],['world','World view',Globe2],['activity','Activity',Activity]] as const;
 const date=(v:unknown)=>v?new Date(String(v)).toLocaleString('en-ZA',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Johannesburg'}):'No DD activity yet';
@@ -41,27 +42,28 @@ export default function PremiumDashboard({cases:existingCases,snapshot,activeCas
  const [copilotFocused,setCopilotFocused]=useState(false),[restoreNotice,setRestoreNotice]=useState('');
  const lastUrl=useRef('');
  const [interpretation,setInterpretation]=useState<Row|null>(null);
- const preferenceInFlight=useRef(false),selectCaseRef=useRef(onSelect);selectCaseRef.current=onSelect;
+ const preferenceInFlight=useRef(false),selectCaseRef=useRef(onSelect);
+  useEffect(()=>{selectCaseRef.current=onSelect;},[onSelect]);
  const alive=useRef(true),request=useRef(0),main=useRef<HTMLElement>(null),composerHost=useRef<HTMLDivElement>(null);
  const refresh=useCallback(async()=>{const n=++request.current;setRefreshing(true);try{const payload=await dashboardRequest({action:'dashboard_snapshot'});if(alive.current&&n===request.current){setRaw(payload);setError('');setWatch(payload.preferences?.find((p:Row)=>p.preference_key==='watchlist')?.payload||[]);setSweeps(payload.preferences?.find((p:Row)=>p.preference_key==='saved_sweeps')?.payload||[]);}}catch(e){if(alive.current&&n===request.current)setError(e instanceof Error?e.message:'The register could not be loaded.');}finally{if(alive.current&&n===request.current){setLoading(false);setRefreshing(false);}}},[]);
- useEffect(()=>{alive.current=true;void refresh();const visible=()=>{if(document.visibilityState==='visible')void refresh();};window.addEventListener('focus',visible);const timer=setInterval(visible,45000);return()=>{alive.current=false;request.current++;window.removeEventListener('focus',visible);clearInterval(timer);};},[refresh]);
- useEffect(()=>{if(!loading)void refresh();},[existingCases.length,snapshot?.case?.revision,snapshot?.jobs?.[0]?.stage]); // authoritative workflow changes refresh the register
- const data=useMemo(()=>projectDashboard((raw||{cases:existingCases}) as any) as Row,[raw,existingCases]);
+ useEffect(()=>{alive.current=true;setTimeout(()=>refresh(),0);const visible=()=>{if(document.visibilityState==='visible')void refresh();};window.addEventListener('focus',visible);const timer=setInterval(visible,45000);return()=>{alive.current=false;request.current++;window.removeEventListener('focus',visible);clearInterval(timer);};},[refresh]);
+ useEffect(()=>{if(!loading)setTimeout(()=>refresh(),0);},[existingCases.length,snapshot?.case?.revision,snapshot?.jobs?.[0]?.stage]); // authoritative workflow changes refresh the register
+ const data=useMemo(()=>projectDashboard((raw||{cases:existingCases}) as Record<string,unknown>) as Row,[raw,existingCases]);
  const go=useCallback((next:string,caseId?:string)=>{setView(next);const url=new URL(window.location.href);url.searchParams.set('view',next);if(caseId)url.searchParams.set('case',caseId);else url.searchParams.delete('case');window.history.pushState({},'',url);lastUrl.current=url.href;requestAnimationFrame(()=>{main.current?.focus();window.scrollTo({top:0,behavior:'instant'});});},[]);
  useEffect(()=>{let mounted=true;lastUrl.current=window.location.href;
   const restore=async()=>{const url=window.location.href,params=new URLSearchParams(window.location.search),next=params.get('view')||'overview',id=params.get('case');
    if(id&&/^[0-9a-f-]{36}$/.test(id)&&!await selectCaseRef.current(id)){if(mounted)window.history.replaceState({},'',lastUrl.current);return;}
-   if(!mounted)return;lastUrl.current=url;setView([...NAV.map(n=>n[0]),'case','search','archive'].includes(next as any)?next:'overview');
+   if(!mounted)return;lastUrl.current=url;setView([...NAV.map(n=>n[0]),'case','search','archive'].includes(next as string)?next:'overview');
   };void restore();window.addEventListener('popstate',restore);return()=>{mounted=false;window.removeEventListener('popstate',restore);};},[]);
  // Keep the restored case URL consistent after a case switch or archive.
  useEffect(()=>{if(view!=='case'||!raw)return;const url=new URL(window.location.href);
-  if(newCaseMode||!activeCaseId){setView('clients');url.searchParams.set('view','clients');url.searchParams.delete('case');}
+  if(newCaseMode||!activeCaseId){setTimeout(()=>setView('clients'),0);url.searchParams.set('view','clients');url.searchParams.delete('case');}
   else if(url.searchParams.get('case')!==activeCaseId)url.searchParams.set('case',activeCaseId);
   else return;window.history.replaceState({},'',url);lastUrl.current=url.href;
  },[activeCaseId,newCaseMode,view,raw]);
  useEffect(()=>{document.title=`${view==='archive'?'Archived investigations':view==='case'?'Client folder':NAV.find(n=>n[0]===view)?.[1]||'Search'} — Integritas`;},[view]);
  useEffect(()=>{const shortcut=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&!e.isComposing){e.preventDefault();setSearchOpen(v=>!v);}};window.addEventListener('keydown',shortcut);return()=>window.removeEventListener('keydown',shortcut);},[]);
- useEffect(()=>setPage(1),[query,kind,region,riskSort,view]);
+ useEffect(()=>{setTimeout(()=>setPage(1),0);},[query,kind,region,riskSort,view]);
  const openCase=async(id:string,tasks=false)=>{if(!await onSelect(id))return;setFolder(null);go('case',id);if(tasks)requestAnimationFrame(()=>document.getElementById('case-gates')?.scrollIntoView({block:'start'}));};
  const active=data.cases.find((c:Row)=>c.id===activeCaseId);
  const selected=data.entities.find((e:Row)=>e.id===entityId);
@@ -86,8 +88,10 @@ export default function PremiumDashboard({cases:existingCases,snapshot,activeCas
  const restoreCase=async(c:Row)=>{if(saving)return;setSaving(true);setRestoreNotice('');let confirmed=false;try{await dashboardRequest({action:'dashboard_restore',caseId:c.id,revision:c.revision});confirmed=true;await onRestored();await refresh();setRestoreNotice('Investigation restored on hold. Open it from Client folders; DD has not restarted.');}catch(e){setError((confirmed?'The investigation was restored, but the workspace could not refresh. Reload before proceeding. ':'')+(e instanceof Error?e.message:'The investigation could not be restored.'));}finally{setSaving(false);}};
  const [openingDocument,setOpeningDocument]=useState<string|null>(null);
  const openOriginal=async(d:Row)=>{if(openingDocument)return;setOpeningDocument(d.id);try{const result=await dashboardRequest({action:'get_document',documentId:d.id});const url=new URL(result.url);if(url.protocol!=='https:')throw new Error('Document download is unavailable.');const link=document.createElement('a');link.href=url.href;link.rel='noreferrer';link.download=result.name||d.name;document.body.appendChild(link);link.click();link.remove();}catch(e){setError(e instanceof Error?e.message:'The original document could not be opened.');}finally{setOpeningDocument(null);}};
+  // eslint-disable-next-line @next/next/no-html-link-for-pages -- accessibility skip link
  const showComposer=view==='overview'||view==='case';
- return <div className="integritas-dashboard"><a className="skip-link" href="#dashboard-main">Skip to dashboard content</a><aside className="dashboard-sidebar"><a href="/" className="dashboard-brand">INTEGRITAS<span>INTEGRITY · GOVERNANCE</span></a><p className="dash-eyebrow sidebar-label">Private workspace</p><nav aria-label="Dashboard navigation">{NAV.map(([id,label,Icon])=><button key={id} onClick={()=>go(id)} className={view===id?'active':''} aria-current={view===id?'page':undefined}><Icon size={17}/><span>{label}</span>{id==='clients'?<small>{data.clients.length}</small>:null}</button>)}</nav><div className="sidebar-bottom"><p>Evidence before decisions.</p><span>Private due diligence workspace</span><form action="/api/crm/logout" method="post" noValidate><button className="dash-button"><LockKeyhole size={13}/> Lock workspace</button></form></div></aside>
+ return <div className="integritas-dashboard">{/* eslint-disable-next-line @next/next/no-html-link-for-pages -- accessibility skip link */}
+<a className="skip-link" href="#dashboard-main">Skip to dashboard content</a><aside className="dashboard-sidebar"><Link href="/" className="dashboard-brand">INTEGRITAS<span>INTEGRITY · GOVERNANCE</span></Link><p className="dash-eyebrow sidebar-label">Private workspace</p><nav aria-label="Dashboard navigation">{NAV.map(([id,label,Icon])=><button key={id} onClick={()=>go(id)} className={view===id?'active':''} aria-current={view===id?'page':undefined}><Icon size={17}/><span>{label}</span>{id==='clients'?<small>{data.clients.length}</small>:null}</button>)}</nav><div className="sidebar-bottom"><p>Evidence before decisions.</p><span>Private due diligence workspace</span><form action="/api/crm/logout" method="post" noValidate><button className="dash-button"><LockKeyhole size={13}/> Lock workspace</button></form></div></aside>
  <main className="dashboard-main" id="dashboard-main" tabIndex={-1} ref={main}><header className="dashboard-topbar"><span>Private CRM <ChevronRight size={12}/> {title}</span><button className="dashboard-search-button" onClick={()=>setSearchOpen(true)}><Search size={14}/><span>Search everything</span><kbd>⌘ K</kbd></button><form className="dashboard-mobile-lock" action="/api/crm/logout" method="post" noValidate><button className="dash-button" aria-label="Lock workspace"><LockKeyhole size={15}/></button></form></header>
  <div className="dashboard-page-heading"><div><p className="dash-eyebrow">Commercial intelligence</p><h1>{title}</h1><p>{view==='overview'?'Your evidence, decisions and next actions.':view==='clients'?'Every client, its evidence and its next decision.':view==='case'?'Evidence, verification and DD reports in one folder.':'Follow each fact back to its source.'}</p></div><button className="dash-button primary" onClick={async()=>{if(!await onNew())return;go('overview');requestAnimationFrame(()=>composerHost.current?.scrollIntoView({block:'center'}));}}><Plus size={15}/> New investigation</button></div>
  {error?<div className="dash-alert" role="alert"><span>{error} {raw?'Previously loaded records remain visible.':''}</span><button onClick={()=>void refresh()} disabled={refreshing}>Retry</button></div>:null}
@@ -112,7 +116,7 @@ export default function PremiumDashboard({cases:existingCases,snapshot,activeCas
 function Pagination({page,total,size,onPage}:{page:number;total:number;size:number;onPage:(n:number)=>void}){const count=Math.max(1,Math.ceil(total/size));return <nav className="dash-pagination" aria-label="Register pages"><span>{total?`${(page-1)*size+1}–${Math.min(page*size,total)} of ${total}`:'0 records'}</span><button onClick={()=>onPage(page-1)} disabled={page<=1}>Previous</button><span>Page {page} of {count}</span><button onClick={()=>onPage(page+1)} disabled={page>=count}>Next</button></nav>;}
 function NetworkView({entities,allEntities,relationships,onEntity}:{entities:Row[];allEntities:Row[];relationships:Row[];onEntity:(id:string)=>void}){
  const [graphPage,setGraphPage]=useState(1),[edgePage,setEdgePage]=useState(1);
- const membership=entities.map(e=>e.id).join(',');useEffect(()=>{setGraphPage(1);setEdgePage(1);},[membership]);
+ const membership=entities.map(e=>e.id).join(',');useEffect(()=>{setTimeout(()=>{setGraphPage(1);setEdgePage(1);},0);},[membership]);
  const ids=new Set(entities.map(e=>e.id)),edges=relationships.filter(r=>ids.has(r.from_entity_id)||ids.has(r.to_entity_id));
  const nodes=entities.slice((graphPage-1)*60,graphPage*60),coords=new Map(nodes.map((e,i)=>[e.id,{x:400+Math.cos(i/nodes.length*Math.PI*2)*260,y:200+Math.sin(i/nodes.length*Math.PI*2)*150}]));
  const name=(id:string)=>allEntities.find(e=>e.id===id)?.display_name||'Unresolved entity';

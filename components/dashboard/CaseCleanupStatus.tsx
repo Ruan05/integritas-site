@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {startVisiblePolling} from '@/lib/visible-polling.mjs';
 type Receipt={requestId:string;cleanupState:'pending'|'leased'|'failed'|'complete';pendingDocuments:number};
-export default function CaseCleanupStatus({request}:{request:(body:Record<string,unknown>)=>Promise<Record<string,any>>}){
+export default function CaseCleanupStatus({request}:{request:(body:Record<string,unknown>)=>Promise<Record<string,unknown>>}) {
  const [receipts,setReceipts]=useState<Receipt[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const poll=useRef<ReturnType<typeof startVisiblePolling>|null>(null);
  useEffect(()=>{

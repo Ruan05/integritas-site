@@ -46,7 +46,7 @@ async function getOracleReportPdf(caseJobId: string, token: string, expectedRevi
     cache: "no-store",
   });
   const rawArtifact = await artifactResponse.json().catch(() => ({}));
-  const artifact: Record<string, any> = rawArtifact && typeof rawArtifact === "object" && !Array.isArray(rawArtifact) ? rawArtifact : {};
+  const artifact = rawArtifact && typeof rawArtifact === "object" && !Array.isArray(rawArtifact) ? rawArtifact as { url?: string; sha256?: string; sizeBytes?: number; caseRevision?: number } : {};
   if (!artifactResponse.ok || typeof artifact.url !== "string") {
     throw Object.assign(new Error("Oracle's canonical report PDF is not available."), {
       status: artifactResponse.status === 404 ? 409 : 502,
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       cache: "no-store",
     });
     const rawSnapshot = await response.json().catch(() => ({}));
-    const snapshot: Record<string, any> = rawSnapshot && typeof rawSnapshot === "object" && !Array.isArray(rawSnapshot) ? rawSnapshot : {};
+      const snapshot = rawSnapshot && typeof rawSnapshot === "object" && !Array.isArray(rawSnapshot) ? rawSnapshot as { case?: { title?: string; revision?: number }; reports?: Array<{ case_job_id?: string; content_markdown?: string; based_on_revision?: number; status?: string; summary?: string }>; jobs?: Array<{ id?: string; runtime_provider?: string; stage?: string; case_revision?: number; created_at?: string; current_attempt?: number }>; reportPairs?: unknown[] } : {};
     if (!response.ok) return NextResponse.json({ error: "Report is unavailable." }, { status: response.status });
     const report = Array.isArray(snapshot.reports) ? snapshot.reports[0] : null;
     const caseTitle = String(snapshot.case?.title || "Integritas investigation");
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
     const jobs: ReportJob[] = (Array.isArray(snapshot.jobs) ? snapshot.jobs : []).filter(isReportJob);
     const nativeJob = jobs.find((row) => row.id === report?.case_job_id && row.runtime_provider === "ruan-native");
     if (nativeJob) {
-      if (!nativeReportReady(nativeJob, report, currentRevision, draft))
+      if (!nativeReportReady(nativeJob, report as Record<string, unknown>, currentRevision, draft))
         return NextResponse.json({error: "Both current report editions are available after independent review and PDF checks complete."}, {status: 409});
       // The authenticated backend validates the exact edition against the committed
       // native final receipt. Recheck the returned bytes before serving either PDF.
@@ -149,7 +149,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Only a current draft or reviewed report can be opened as an internal draft PDF." }, { status: 409 });
       }
     } else {
-      if (!oraclePairReady(job, report, snapshot.reportPairs, currentRevision)) {
+      if (!oraclePairReady(job, report, snapshot.reportPairs as import("@/lib/oracle-report-pair").OracleReportPair[], currentRevision)) {
         return NextResponse.json({ error: "The final report is released automatically after independent review and artifact checks pass. Those checks are still pending." }, { status: 409 });
       }
       if (reportNeedsHold(String(report.summary || ""), String(report.content_markdown))) {

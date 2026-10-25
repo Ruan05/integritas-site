@@ -6,7 +6,6 @@ import PremiumDashboard from "@/components/dashboard/PremiumDashboard";
 import { oraclePairReady, type OracleReportPair } from "@/lib/oracle-report-pair";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DocumentIntakePanel } from "@/components/DocumentIntakePanel";
 import CaseAgentChat, { caseChatRequest } from "@/components/CaseAgentChat";
 import { crmIntakeClient } from "@/lib/crm-intake";
@@ -17,17 +16,10 @@ import { reportNeedsHold } from "@/lib/report-disposition";
 import { reportEligibleForFinalization, verifyReportModel, type VerifiedReportModel } from "@/lib/integritas-report-model";
 import {readWithRetry} from "@/lib/crm-read-recovery.mjs";
 import {
-  Archive,
   CheckCircle2,
-  ChevronDown,
   Download,
   FileText,
-  LockKeyhole,
-  MoreHorizontal,
   Pause,
-  Plus,
-  ShieldCheck,
-  Trash2,
   UploadCloud,
   XCircle,
 } from "lucide-react";
@@ -279,7 +271,8 @@ export default function IntegritasAdminWorkspace() {
     model: VerifiedReportModel | null;
     checked: boolean;
   }>({ report: null, model: null, checked: false });
-  const [archiveMenu, setArchiveMenu] = useState<string | null>(null);
+  const [_archiveMenu, setArchiveMenu] = useState<string | null>(null);
+  const [pendingCreateRequest, setPendingCreateRequest] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const clearReadNotice = useCallback(() => {
     setReadError("");
@@ -414,27 +407,6 @@ export default function IntegritasAdminWorkspace() {
     }
   };
 
-  const deleteCasePermanently = async (item: CaseRow) => {
-    if(!await confirmation.confirm("Permanently delete investigation", `Permanently remove “${item.title}”, including uploaded files, report and retained evidence.`, "DELETE"))return;
-    setSubmitting(true);
-    setArchiveMenu(null);
-    setNotice("Permanently deleting the investigation and its files…");
-    try {
-      const receipt = await crmRequest({ action: "purge_case", caseId: item.id, confirmation: "DELETE" });
-      window.dispatchEvent(new Event("integritas-case-purged"));
-      const nextCases = await refreshCases(activeCaseId === item.id ? undefined : activeCaseId);
-      if (activeCaseId === item.id) {
-        setActiveCaseId(nextCases[0]?.id || "");
-        setSnapshot(null);
-      }
-      setNotice(receipt.cleanupState === "complete" ? "Investigation and evidence files permanently deleted." : "Investigation deleted. Evidence file cleanup is saved and will retry automatically; see File cleanup status below.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const refreshCases = async (prefer?: string) => {
     const payload = await crmRequest({ action: "list_cases" });
     clearReadNotice();
@@ -508,7 +480,7 @@ export default function IntegritasAdminWorkspace() {
       window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, [activeCaseId,clearReadNotice,markReadNotice]);
+  }, [activeCaseId,clearReadNotice,markReadNotice,refreshCases]);
 
   const chooseFiles = (next: File[]) => {
     try {
@@ -528,10 +500,13 @@ export default function IntegritasAdminWorkspace() {
   };
 
   async function ensureFolder(submissionFiles:File[]):Promise<string> {
-    if(!createRequest.current)createRequest.current={key:"case:"+crypto.randomUUID(),input:{action: "create_case", authorized: true,clientId:newClientId||undefined, title: clientName.trim()||caseTitle(submissionFiles),clientName:clientName.trim()||caseTitle(submissionFiles),
+    if(!createRequest.current){
+      createRequest.current={key:"case:"+crypto.randomUUID(),input:{action: "create_case", authorized: true,clientId:newClientId||undefined, title: clientName.trim()||caseTitle(submissionFiles),clientName:clientName.trim()||caseTitle(submissionFiles),
       purpose: "Maximum-depth, source-grounded due-diligence investigation with independent review and both report editions.",
       authorizedScope: "Review all submitted evidence, digital and document forensics, identity and authority, ownership, sanctions, operations, banking, commercial plausibility and contradictions. Preserve unresolved verification gates.",
       intendedSubjects: "Entities identified in the submitted evidence", jurisdictions: "International; determine from the evidence."}};
+      setPendingCreateRequest(true);
+    }
     setAttemptFrozen(true);
     const created=await crmRequest({...createRequest.current.input,idempotencyKey:createRequest.current.key});
     const caseId = String(created.caseId || "");
@@ -658,18 +633,18 @@ export default function IntegritasAdminWorkspace() {
   const requestNew = async (clientId?:string) => {
     if(submitting||creating.current)return false;
     if((attemptFrozen||files.length||question.trim()||clientName.trim())&&!await confirmation.confirm("Start another investigation?","Your unsent brief and attached files will be cleared. Evidence already accepted by the service remains saved in its case."))return false;
-    createRequest.current=null;setClientName("");setNewClientId(clientId||null);resetNew();return true;
+    createRequest.current=null;setPendingCreateRequest(false);setClientName("");setNewClientId(clientId||null);resetNew();return true;
   };
   const requestCase = async (id:string) => {
     if(submitting||creating.current)return false;
     if(id===activeCaseId&&!newCaseMode)return true;
     if((attemptFrozen||files.length||question.trim()||clientName.trim())&&!await confirmation.confirm("Change client folder?","Your unsent brief and file selection will be cleared before switching folders. Accepted evidence stays with its original case."))return false;
-    createRequest.current=null;acceptedAttempt.current=null;setAttemptFrozen(false);setFiles([]);setQuestion("");setArchiveMenu(null);setNewCaseMode(false);setActiveCaseId(id);
+    createRequest.current=null;acceptedAttempt.current=null;setAttemptFrozen(false);setFiles([]);setQuestion("");setArchiveMenu(null);setNewCaseMode(false);setActiveCaseId(id);setPendingCreateRequest(false);
     if(inputRef.current)inputRef.current.value="";
     return true;
   };
   const createFolderOnly=async()=>{
-    if(submitting||creating.current||!clientName.trim()&&!createRequest.current)return;
+    if(submitting||creating.current||!clientName.trim()&&!pendingCreateRequest)return;
     creating.current=true;setSubmitting(true);setNotice("Creating your client folder…");
     try{const id=await ensureFolder(files);await refreshCases(id);await loadCase(id);setNewCaseMode(false);setClientName("");setNewClientId(null);setAttemptFrozen(false);setNotice("Folder created and saved. Add evidence and run full DD when ready; creating a folder does not start an investigation.");}
     catch(e){setNotice(e instanceof Error?e.message:"The folder could not be confirmed. Retry this same request to recover its status.");}
@@ -681,7 +656,8 @@ export default function IntegritasAdminWorkspace() {
     window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);
   },[files.length,question,clientName]);
 
-  const composer=(<>{newCaseMode?<div className="new-client-name"><label htmlFor="client-folder-name">{newClientId?"Investigation title in the existing client folder":"Client folder name"}</label><input id="client-folder-name" maxLength={160} value={clientName} onChange={e=>setClientName(e.target.value)} disabled={submitting||attemptFrozen} placeholder="Client or company name (optional until evidence establishes identity)"/><button className="dash-button" onClick={()=>void createFolderOnly()} disabled={submitting||(!clientName.trim()&&!createRequest.current)}>{submitting?"Saving…":attemptFrozen?"Retry folder creation":"Create folder"}</button><p className="dash-muted">Create and save the folder now. Full DD starts only when you submit its evidence and brief.</p></div>:null}
+  const canCreateFolder = !(!clientName.trim() && pendingCreateRequest);
+  const composer=(<>{newCaseMode?<div className="new-client-name"><label htmlFor="client-folder-name">{newClientId?"Investigation title in the existing client folder":"Client folder name"}</label><input id="client-folder-name" maxLength={160} value={clientName} onChange={e=>setClientName(e.target.value)} disabled={submitting||attemptFrozen} placeholder="Client or company name (optional until evidence establishes identity)"/><button className="dash-button" onClick={()=>void createFolderOnly()} disabled={submitting||!canCreateFolder}>{submitting?"Saving…":attemptFrozen?"Retry folder creation":"Create folder"}</button><p className="dash-muted">Create and save the folder now. Full DD starts only when you submit its evidence and brief.</p></div>:null}
 <CaseAgentChat
             key={newCaseMode ? "new-investigation" : activeCaseId || "new-investigation"}
             caseId={newCaseMode ? undefined : activeCase?.id}

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Third-party Cesium worker files
+    "public/cesium/ThirdParty/Workers/zip-web-worker.js",
+    "public/cesium/ThirdParty/google-earth-dbroot-parser.js",
   ]),
   {
     files: ["components/ui/**/*.{ts,tsx}", "hooks/use-mobile.ts"],

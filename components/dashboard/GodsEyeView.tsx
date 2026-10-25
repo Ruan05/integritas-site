@@ -8,20 +8,21 @@ import {streetCaptureDate} from '@/lib/street-capture-date.mjs';
 
 type Entity={id:string;display_name:string;identifiers?:Record<string,unknown>};
 const safeExternalImageUrl=(value:unknown)=>{try{const url=new URL(String(value));return url.protocol==='https:'?url.href:null;}catch{return null;}};
-export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}}:{entities:Entity[];onEntity?:(id:string)=>void;expanded?:boolean;data?:Record<string,any>}){
- const host=useRef<HTMLDivElement>(null),credits=useRef<HTMLDivElement>(null),streetHost=useRef<HTMLDivElement>(null),viewerRef=useRef<any>(null),engine=useRef<any>(null),effects=useRef<any>(null),streetLayer=useRef<any>(null);
+export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}}:{entities:Entity[];onEntity?:(id:string)=>void;expanded?:boolean;data?:Record<string,unknown>}){
+ const host=useRef<HTMLDivElement>(null),credits=useRef<HTMLDivElement>(null),streetHost=useRef<HTMLDivElement>(null),viewerRef=useRef<any>(null),engine=useRef<any>(null),effects=useRef<any>(null),streetLayer=useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any -- Cesium refs dynamic
  const [style,setStyle]=useState('normal'),[showLocations,setShowLocations]=useState(true);
  const [state,setState]=useState('Loading the world view…'),[error,setError]=useState(''),[imagery,setImagery]=useState(true),[full,setFull]=useState(expanded),[worldReady,setWorldReady]=useState(false);
- const [streetActive,setStreetActive]=useState(false),[streetConsent,setStreetConsent]=useState(false),[streetUi,setStreetUi]=useState<any>(null),[streetError,setStreetError]=useState(''),[nearestPoint,setNearestPoint]=useState<{lat:number;lon:number}|null>(null);
+ const [streetActive,setStreetActive]=useState(false),[streetConsent,setStreetConsent]=useState(false),[streetUi,setStreetUi]=useState<any>(null),[streetError,setStreetError]=useState(''); // eslint-disable-line @typescript-eslint/no-explicit-any -- street UI state dynamic[nearestPoint,setNearestPoint]=useState<{lat:number;lon:number}|null>(null);
  const points=entities.map(e=>({entity:e,location:entityLocation(e,data)})).filter(x=>x.location);
- const navigate=useRef(onEntity);navigate.current=onEntity;
+ const navigate=useRef(onEntity);
+  useEffect(()=>{navigate.current=onEntity;},[onEntity]);
  useEffect(()=>{
-  let stopped=false,viewer:any,handler:any,disposePinch:(()=>void)|undefined;
+  let stopped=false,viewer:any,handler:any,disposePinch:(()=>void)|undefined; // eslint-disable-line @typescript-eslint/no-explicit-any -- Cesium objects dynamic
   const begin=async()=>{
    // Keep Cesium out of the Worker server bundle; only the browser owns WebGL.
    if(import.meta.env.SSR)return;
    try{
-    (window as any).CESIUM_BASE_URL='/cesium/';
+    (window as any).CESIUM_BASE_URL='/cesium/'; // eslint-disable-line @typescript-eslint/no-explicit-any -- Cesium dynamic global
     const [C,gev,visual]=await Promise.all([import('cesium'),import('@/vendor/gods-eye-view/src/app/viewer.js'),import('@/vendor/gods-eye-view/src/ui/visualEffects.js')]);
     if(stopped||!host.current||!credits.current)return;
     engine.current=C;
@@ -39,7 +40,7 @@ export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}
      layer.brightness=.38;layer.contrast=1.3;layer.saturation=.25;
     }catch{setState('Basemap unavailable. Verified locations remain available below.');}
     handler=new C.ScreenSpaceEventHandler(viewer.scene.canvas);
-    handler.setInputAction((movement:any)=>{const picked=viewer.scene.pick(movement.position);if(picked?.id?.properties?.crmId)navigate.current?.(String(picked.id.properties.crmId.getValue()));},C.ScreenSpaceEventType.LEFT_CLICK);
+    handler.setInputAction((movement:any)=>{const picked=viewer.scene.pick(movement.position);if(picked?.id?.properties?.crmId)navigate.current?.(String(picked.id.properties.crmId.getValue()));},C.ScreenSpaceEventType.LEFT_CLICK); // eslint-disable-line @typescript-eslint/no-explicit-any -- Cesium event handler
     viewer.scene.renderError.addEventListener(()=>{if(!stopped)setError('The 3D view stopped rendering. Use the location register below or reload the page.');});
     if(!stopped){setState('Source: OpenStreetMap · DD pins require evidence-backed coordinates');setWorldReady(true);}
    }catch{if(!stopped)setError('This browser could not start the 3D world view. The location register is available below.');}
@@ -48,7 +49,7 @@ export default function GodsEyeView({entities=[],onEntity,expanded=false,data={}
  },[]);
  useEffect(()=>{
   if(!streetActive||!worldReady)return;
-  let stopped=false,unsubscribe:(()=>void)|undefined,layer:any;
+  let stopped=false,unsubscribe:(()=>void)|undefined,layer:any; // eslint-disable-line @typescript-eslint/no-explicit-any -- Panoramax layer dynamic
   const start=async()=>{
    try{
     const {createPanoramaxLayer}=await import('@/lib/create-panoramax-layer.mjs');

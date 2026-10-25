@@ -5,7 +5,7 @@ import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@
 import {Select as AuthoredSelect,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
 import {interpretSearch,matchesSearch,searchInterpretation} from '@/lib/dashboard-search.mjs';
 import {downloadCsv} from '@/lib/dashboard-model.mjs';
-type Row=Record<string,any>;
+type Row=Record<string,unknown>;
 export default function ProspectRegister({rows=[],source,onPrepare}:{rows?:Row[];source?:Row;onPrepare:(row:Row)=>Promise<boolean>}){
  const [query,setQuery]=useState(''),[region,setRegion]=useState('all'),[role,setRole]=useState('all'),[priority,setPriority]=useState('all'),[sort,setSort]=useState('priority'),[parsed,setParsed]=useState<Row|null>(null),[page,setPage]=useState(1),[selected,setSelected]=useState<Row|null>(null);
  const countries=[...new Set(rows.map(r=>r.country))].sort();
